@@ -8,6 +8,6 @@ func NewScanner(source string) *Scanner {
 	return &Scanner{}
 }
 
-func (s *Scanner) ScanTokens() []Token {
-	return []Token{}
+func (s *Scanner) ScanTokens() ([]Token, error) {
+	return []Token{}, nil
 }
