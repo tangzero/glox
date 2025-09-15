@@ -32,6 +32,10 @@ func RunPrompt() error {
 }
 
 func Run(source string) error {
-	fmt.Println(source)
+	scanner := NewScanner(source)
+	tokens := scanner.ScanTokens()
+	for _, token := range tokens {
+		fmt.Println(token)
+	}
 	return nil
 }
