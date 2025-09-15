@@ -1,7 +1,5 @@
 package glox
 
-type Token struct{}
-
 type Scanner struct{}
 
 func NewScanner(source string) *Scanner {

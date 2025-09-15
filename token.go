@@ -1,8 +1,12 @@
 package glox
 
+import "fmt"
+
+type TokenType int
+
 const (
 	// Single-character tokens
-	LeftParen = iota
+	LeftParen TokenType = iota
 	RightParen
 	LeftBrace
 	RightBrace
@@ -49,3 +53,23 @@ const (
 
 	EOF
 )
+
+type Token struct {
+	Type    TokenType
+	Lexeme  string
+	Literal any
+	Line    int
+}
+
+func NewToken(tokenType TokenType, lexeme string, literal any, line int) Token {
+	return Token{
+		Type:    tokenType,
+		Lexeme:  lexeme,
+		Literal: literal,
+		Line:    line,
+	}
+}
+
+func (t Token) String() string {
+	return fmt.Sprintf("%v %v %v", t.Type, t.Lexeme, t.Literal)
+}
