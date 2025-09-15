@@ -1,8 +1,6 @@
 package glox
 
 import (
-	"fmt"
-
 	"github.com/samber/lo"
 )
 
@@ -26,7 +24,7 @@ func (s *Scanner) ScanTokens() ([]Token, error) {
 	for !s.AtEnd() {
 		s.Start = s.Current
 		if err := s.ScanToken(); err != nil {
-			return s.Tokens, fmt.Errorf("failed to scan the next token: %w", err)
+			return s.Tokens, err
 		}
 	}
 	s.Tokens = append(s.Tokens, Token{Type: EOF, Lexeme: "", Literal: nil})
@@ -71,11 +69,17 @@ func (s *Scanner) ScanToken() error {
 	case '/':
 		if s.Match('/') {
 			s.AdvanceUntil('\n') // a comment goes until the end of the line.
-			return nil
+		} else {
+			s.AddToken(Slash)
 		}
-		s.AddToken(Slash)
+	case ' ', '\r', '\t':
+		// ignore whitespaces
+	case '\n':
+		s.Line++
+	case '"':
+		return s.ParseString()
 	default:
-		return fmt.Errorf("unexpected character: %q", c)
+		return Error(s.Line, "unexpected character")
 	}
 	return nil
 }
@@ -120,4 +124,15 @@ func (s *Scanner) AddToken(t TokenType) {
 func (s *Scanner) AddTokenLiteral(t TokenType, literal any) {
 	text := s.Source[s.Start:s.Current]
 	s.Tokens = append(s.Tokens, Token{Type: t, Lexeme: text, Literal: literal, Line: s.Line})
+}
+
+func (s *Scanner) ParseString() error {
+	s.AdvanceUntil('"')
+	if s.AtEnd() {
+		return Error(s.Line, "unterminated string")
+	}
+	s.Advance() // the closing "
+	value := s.Source[s.Start+1 : s.Current-1]
+	s.AddTokenLiteral(String, value)
+	return nil
 }
