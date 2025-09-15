@@ -1,6 +1,9 @@
 package glox
 
 import (
+	"strconv"
+	"unicode"
+
 	"github.com/samber/lo"
 )
 
@@ -79,6 +82,9 @@ func (s *Scanner) ScanToken() error {
 	case '"':
 		return s.ParseString()
 	default:
+		if unicode.IsDigit(rune(c)) {
+			return s.ParseNumber()
+		}
 		return Error(s.Line, "unexpected character")
 	}
 	return nil
@@ -104,6 +110,13 @@ func (s *Scanner) Peek() byte {
 		return 0
 	}
 	return s.Source[s.Current]
+}
+
+func (s *Scanner) PeekNext() byte {
+	if s.Current+1 >= len(s.Source) {
+		return 0
+	}
+	return s.Source[s.Current+1]
 }
 
 func (s *Scanner) Match(expected byte) bool {
@@ -134,5 +147,25 @@ func (s *Scanner) ParseString() error {
 	s.Advance() // the closing "
 	value := s.Source[s.Start+1 : s.Current-1]
 	s.AddTokenLiteral(String, value)
+	return nil
+}
+
+func (s *Scanner) ParseNumber() error {
+	for unicode.IsDigit(rune(s.Peek())) {
+		s.Advance()
+	}
+	if s.Peek() == '.' && unicode.IsDigit(rune(s.PeekNext())) {
+		s.Advance() // consume the "."
+		for unicode.IsDigit(rune(s.Peek())) {
+			s.Advance()
+		}
+	}
+	number, err := strconv.ParseFloat(s.Source[s.Start:s.Current], 64)
+	if err != nil {
+		// if we reach here, something is really wrong with our parser.
+		// just return an error.
+		return Error(s.Line, "invalid number")
+	}
+	s.AddTokenLiteral(Number, number)
 	return nil
 }
