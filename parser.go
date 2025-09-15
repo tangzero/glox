@@ -1,0 +1,187 @@
+package glox
+
+import "slices"
+
+type Parser[R any] struct {
+	Tokens  []Token
+	Current int
+}
+
+func NewParser[R any](tokens []Token) *Parser[R] {
+	return &Parser[R]{Tokens: tokens}
+}
+
+func (p *Parser[R]) Parse() (Expr[R], error) {
+	return p.Expression()
+}
+
+// Expression -> Equality ;
+func (p *Parser[R]) Expression() (Expr[R], error) {
+	return p.Equality()
+}
+
+// Equality -> Comparison ( ( "!=" | "==" ) Comparison )* ;
+func (p *Parser[R]) Equality() (zero Expr[R], err error) {
+	expr, err := p.Comparison()
+	if err != nil {
+		return zero, err
+	}
+	for p.Match(BangEqual, EqualEqual) {
+		operator := p.Previous()
+		right, err := p.Comparison()
+		if err != nil {
+			return zero, err
+		}
+		expr = &BinaryExpr[R]{
+			Left:     expr,
+			Operator: operator,
+			Right:    right,
+		}
+	}
+	return expr, nil
+}
+
+// Comparison -> Term ( ( ">" | ">=" | "<" | "<=" ) Term )* ;
+func (p *Parser[R]) Comparison() (zero Expr[R], error error) {
+	expr, err := p.Term()
+	if err != nil {
+		return zero, err
+	}
+	for p.Match(Greater, GreaterEqual, Less, LessEqual) {
+		operator := p.Previous()
+		right, err := p.Term()
+		if err != nil {
+			return zero, err
+		}
+		expr = &BinaryExpr[R]{
+			Left:     expr,
+			Operator: operator,
+			Right:    right,
+		}
+	}
+	return expr, nil
+}
+
+// Term -> Factor ( ( "-" | "+" ) Factor )* ;
+func (p *Parser[R]) Term() (zero Expr[R], error error) {
+	expr, err := p.Factor()
+	if err != nil {
+		return zero, err
+	}
+	for p.Match(Minus, Plus) {
+		operator := p.Previous()
+		right, err := p.Factor()
+		if err != nil {
+			return zero, err
+		}
+		expr = &BinaryExpr[R]{
+			Left:     expr,
+			Operator: operator,
+			Right:    right,
+		}
+	}
+	return expr, nil
+}
+
+// Factor -> Unary ( ( "/" | "*" ) Unary )* ;
+func (p *Parser[R]) Factor() (zero Expr[R], error error) {
+	expr, err := p.Unary()
+	if err != nil {
+		return zero, err
+	}
+	for p.Match(Slash, Star) {
+		operator := p.Previous()
+		right, err := p.Unary()
+		if err != nil {
+			return zero, err
+		}
+		expr = &BinaryExpr[R]{
+			Left:     expr,
+			Operator: operator,
+			Right:    right,
+		}
+	}
+	return expr, nil
+}
+
+// Unary -> ( "!" | "-" ) Unary | Primary ;
+func (p *Parser[R]) Unary() (zero Expr[R], error error) {
+	if p.Match(Bang, Minus) {
+		operator := p.Previous()
+		right, err := p.Unary()
+		if err != nil {
+			return zero, err
+		}
+		return &UnaryExpr[R]{
+			Operator: operator,
+			Right:    right,
+		}, nil
+	}
+	return p.Primary()
+}
+
+// Primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" Expression ")" ;
+func (p *Parser[R]) Primary() (zero Expr[R], error error) {
+	if p.Match(False) {
+		return &LiteralExpr[R]{Value: false}, nil
+	}
+	if p.Match(True) {
+		return &LiteralExpr[R]{Value: true}, nil
+	}
+	if p.Match(Nil) {
+		return &LiteralExpr[R]{Value: nil}, nil
+	}
+	if p.Match(Number, String) {
+		return &LiteralExpr[R]{Value: p.Previous().Literal}, nil
+	}
+	if p.Match(LeftParen) {
+		expr, err := p.Expression()
+		if err != nil {
+			return zero, err
+		}
+		if !p.Match(RightParen) {
+			return zero, p.Error(p.Peek(), "expect ')' after expression")
+		}
+		return &GroupingExpr[R]{Expression: expr}, nil
+	}
+	return zero, p.Error(p.Peek(), "expect expression")
+}
+
+func (p *Parser[R]) Check(t TokenType) bool {
+	if p.IsAtEnd() {
+		return false
+	}
+	return p.Peek().Type == t
+}
+
+func (p *Parser[R]) Match(types ...TokenType) bool {
+	return slices.ContainsFunc(types, func(t TokenType) bool {
+		return p.Check(t) && func() bool { p.Advance(); return true }()
+	})
+}
+
+func (p *Parser[R]) Advance() Token {
+	if !p.IsAtEnd() {
+		p.Current++
+	}
+	return p.Previous()
+}
+
+func (p *Parser[R]) IsAtEnd() bool {
+	return p.Peek().Type == EOF
+}
+
+func (p *Parser[R]) Peek() Token {
+	return p.Tokens[p.Current]
+}
+
+func (p *Parser[R]) Previous() Token {
+	return p.Tokens[p.Current-1]
+}
+
+func (p *Parser[R]) Error(token Token, message string) error {
+	if token.Type == EOF {
+		return Report(token.Line, " at end", message)
+	}
+	return Report(token.Line, " at '"+token.Lexeme+"'", message)
+}

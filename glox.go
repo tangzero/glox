@@ -22,7 +22,7 @@ func RunPrompt() error {
 	scanner := bufio.NewScanner(os.Stdin)
 	for fmt.Print(prompt); scanner.Scan(); fmt.Print(prompt) {
 		if err := Run(scanner.Text()); err != nil {
-			return err
+			fmt.Println(err)
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -35,10 +35,16 @@ func Run(source string) error {
 	scanner := NewScanner(source)
 	tokens, err := scanner.ScanTokens()
 	if err != nil {
-		return fmt.Errorf("error scanning tokens: %v", err)
+		return err
 	}
-	for _, token := range tokens {
-		fmt.Println(token)
+	expr, err := NewParser[any](tokens).Parse()
+	if err != nil {
+		return err
 	}
+	result, err := new(Interpreter).Interpret(expr)
+	if err != nil {
+		return err
+	}
+	fmt.Println(result)
 	return nil
 }

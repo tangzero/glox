@@ -7,6 +7,25 @@ import (
 	"github.com/samber/lo"
 )
 
+var Keywords = map[string]TokenType{
+	"and":    And,
+	"class":  Class,
+	"else":   Else,
+	"false":  False,
+	"for":    For,
+	"fun":    Fun,
+	"if":     If,
+	"nil":    Nil,
+	"or":     Or,
+	"print":  Print,
+	"return": Return,
+	"super":  Super,
+	"this":   This,
+	"true":   True,
+	"var":    Var,
+	"while":  While,
+}
+
 type Scanner struct {
 	Source  string
 	Tokens  []Token
@@ -30,7 +49,10 @@ func (s *Scanner) ScanTokens() ([]Token, error) {
 			return s.Tokens, err
 		}
 	}
-	s.Tokens = append(s.Tokens, Token{Type: EOF, Lexeme: "", Literal: nil})
+	s.Tokens = append(s.Tokens, Token{
+		Type: EOF,
+		Line: s.Line,
+	})
 	return s.Tokens, nil
 }
 
@@ -82,8 +104,11 @@ func (s *Scanner) ScanToken() error {
 	case '"':
 		return s.ParseString()
 	default:
-		if unicode.IsDigit(rune(c)) {
+		if IsDigit(c) {
 			return s.ParseNumber()
+		}
+		if IsAlpha(c) {
+			return s.ParseIdentifier()
 		}
 		return Error(s.Line, "unexpected character")
 	}
@@ -136,7 +161,12 @@ func (s *Scanner) AddToken(t TokenType) {
 
 func (s *Scanner) AddTokenLiteral(t TokenType, literal any) {
 	text := s.Source[s.Start:s.Current]
-	s.Tokens = append(s.Tokens, Token{Type: t, Lexeme: text, Literal: literal, Line: s.Line})
+	s.Tokens = append(s.Tokens, Token{
+		Type:    t,
+		Lexeme:  text,
+		Literal: literal,
+		Line:    s.Line,
+	})
 }
 
 func (s *Scanner) ParseString() error {
@@ -154,7 +184,7 @@ func (s *Scanner) ParseNumber() error {
 	for unicode.IsDigit(rune(s.Peek())) {
 		s.Advance()
 	}
-	if s.Peek() == '.' && unicode.IsDigit(rune(s.PeekNext())) {
+	if s.Peek() == '.' && IsDigit(s.PeekNext()) {
 		s.Advance() // consume the "."
 		for unicode.IsDigit(rune(s.Peek())) {
 			s.Advance()
@@ -168,4 +198,29 @@ func (s *Scanner) ParseNumber() error {
 	}
 	s.AddTokenLiteral(Number, number)
 	return nil
+}
+
+func (s *Scanner) ParseIdentifier() error {
+	for IsAlphaNumeric(s.Peek()) {
+		s.Advance()
+	}
+	text := s.Source[s.Start:s.Current]
+	if keyword, ok := Keywords[text]; ok {
+		s.AddToken(keyword) // it's a reserved keyword
+		return nil
+	}
+	s.AddToken(Identifier)
+	return nil
+}
+
+func IsDigit(c byte) bool {
+	return unicode.IsDigit(rune(c))
+}
+
+func IsAlpha(c byte) bool {
+	return unicode.IsLetter(rune(c)) || c == '_'
+}
+
+func IsAlphaNumeric(c byte) bool {
+	return IsAlpha(c) || IsDigit(c)
 }
