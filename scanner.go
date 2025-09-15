@@ -68,6 +68,12 @@ func (s *Scanner) ScanToken() error {
 		s.AddToken(lo.Ternary(s.Match('='), LessEqual, Less))
 	case '>':
 		s.AddToken(lo.Ternary(s.Match('='), GreaterEqual, Greater))
+	case '/':
+		if s.Match('/') {
+			s.AdvanceUntil('\n') // a comment goes until the end of the line.
+			return nil
+		}
+		s.AddToken(Slash)
 	default:
 		return fmt.Errorf("unexpected character: %q", c)
 	}
@@ -80,13 +86,20 @@ func (s *Scanner) Advance() byte {
 	return s.Source[i]
 }
 
-func (s *Scanner) AddToken(t TokenType) {
-	s.AddTokenLiteral(t, nil)
+func (s *Scanner) AdvanceUntil(target byte) {
+	for !s.AtEnd() && s.Peek() != target {
+		if s.Peek() == '\n' {
+			s.Line++
+		}
+		s.Advance()
+	}
 }
 
-func (s *Scanner) AddTokenLiteral(t TokenType, literal any) {
-	text := s.Source[s.Start:s.Current]
-	s.Tokens = append(s.Tokens, Token{Type: t, Lexeme: text, Literal: literal, Line: s.Line})
+func (s *Scanner) Peek() byte {
+	if s.AtEnd() {
+		return 0
+	}
+	return s.Source[s.Current]
 }
 
 func (s *Scanner) Match(expected byte) bool {
@@ -98,4 +111,13 @@ func (s *Scanner) Match(expected byte) bool {
 	}
 	s.Current++
 	return true
+}
+
+func (s *Scanner) AddToken(t TokenType) {
+	s.AddTokenLiteral(t, nil)
+}
+
+func (s *Scanner) AddTokenLiteral(t TokenType, literal any) {
+	text := s.Source[s.Start:s.Current]
+	s.Tokens = append(s.Tokens, Token{Type: t, Lexeme: text, Literal: literal, Line: s.Line})
 }
