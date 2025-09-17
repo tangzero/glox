@@ -16,6 +16,8 @@ type ExprVisitor[R any] interface {
 	VisitGroupingExpr(expr *GroupingExpr[R]) (R, error)
 	VisitLiteralExpr(expr *LiteralExpr[R]) (R, error)
 	VisitUnaryExpr(expr *UnaryExpr[R]) (R, error)
+	VisitVariableExpr(expr *VariableExpr[R]) (R, error)
+	VisitAssignExpr(expr *AssignExpr[R]) (R, error)
 }
 
 type BinaryExpr[R any] struct {
@@ -53,6 +55,23 @@ func (u *UnaryExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
 	return visitor.VisitUnaryExpr(u)
 }
 
+type VariableExpr[R any] struct {
+	Name Token
+}
+
+func (i *VariableExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+	return visitor.VisitVariableExpr(i)
+}
+
+type AssignExpr[R any] struct {
+	Name  Token
+	Value Expr[R]
+}
+
+func (a *AssignExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+	return visitor.VisitAssignExpr(a)
+}
+
 type Stmt[R any] interface {
 	Accept(visitor StmtVisitor[R]) error
 }
@@ -60,6 +79,7 @@ type Stmt[R any] interface {
 type StmtVisitor[R any] interface {
 	VisitExpressionStmt(stmt *ExpressionStmt[R]) error
 	VisitPrintStmt(stmt *PrintStmt[R]) error
+	VisitVarDeclStmt(stmt *VarDeclStmt[R]) error
 }
 
 type ExpressionStmt[R any] struct {
@@ -76,4 +96,13 @@ type PrintStmt[R any] struct {
 
 func (p *PrintStmt[R]) Accept(visitor StmtVisitor[R]) error {
 	return visitor.VisitPrintStmt(p)
+}
+
+type VarDeclStmt[R any] struct {
+	Name        Token
+	Initializer Expr[R]
+}
+
+func (v *VarDeclStmt[R]) Accept(visitor StmtVisitor[R]) error {
+	return visitor.VisitVarDeclStmt(v)
 }

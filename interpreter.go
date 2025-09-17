@@ -4,9 +4,13 @@ import (
 	"fmt"
 )
 
-var _ Visitor[any] = (*Interpreter)(nil)
+type Interpreter struct {
+	env Environment
+}
 
-type Interpreter struct{}
+func NewInterpreter() *Interpreter {
+	return &Interpreter{env: Environment{}}
+}
 
 func (i *Interpreter) VisitBinaryExpr(expr *BinaryExpr[any]) (any, error) {
 	left, err := i.Evaluate(expr.Left)
@@ -96,8 +100,19 @@ func (i *Interpreter) VisitUnaryExpr(expr *UnaryExpr[any]) (any, error) {
 	case Bang:
 		return !isTruthy(right), nil
 	}
-
 	panic("unreachable")
+}
+
+func (i *Interpreter) VisitVariableExpr(expr *VariableExpr[any]) (any, error) {
+	return i.env.Get(expr.Name)
+}
+
+func (i *Interpreter) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
+	value, err := i.Evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+	return value, i.env.Assign(expr.Name, value)
 }
 
 func (i *Interpreter) Evaluate(expr Expr[any]) (any, error) {
@@ -115,6 +130,20 @@ func (i *Interpreter) VisitPrintStmt(stmt *PrintStmt[any]) error {
 		return err
 	}
 	fmt.Println(value)
+	return nil
+}
+
+func (i *Interpreter) VisitVarDeclStmt(stmt *VarDeclStmt[any]) error {
+	if stmt.Initializer == nil {
+		i.env.Define(stmt.Name, nil)
+		return nil
+	}
+
+	value, err := i.Evaluate(stmt.Initializer)
+	if err != nil {
+		return err
+	}
+	i.env.Define(stmt.Name, value)
 	return nil
 }
 

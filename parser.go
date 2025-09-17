@@ -16,15 +16,42 @@ func (p *Parser[R]) Parse() (Program[R], error) {
 }
 
 func (p *Parser[R]) Program() (Program[R], error) {
-	var satements []Stmt[R]
+	var program Program[R]
 	for !p.IsAtEnd() {
-		stmt, err := p.Statement()
+		stmt, err := p.Declaration()
 		if err != nil {
 			return nil, err
 		}
-		satements = append(satements, stmt)
+		program = append(program, stmt)
 	}
-	return satements, nil
+	return program, nil
+}
+
+// Declaration -> VarDeclaration | Statement ;
+func (p *Parser[R]) Declaration() (Stmt[R], error) {
+	if p.Match(Var) {
+		return p.VarDeclaration()
+	}
+	return p.Statement()
+}
+
+// VarDeclaration -> "var" IDENTIFIER ( "=" Expression )? ";" ;
+func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
+	if !p.Match(Identifier) {
+		return nil, p.Error(p.Peek(), "expect variable name")
+	}
+	name := p.Previous()
+	var initializer Expr[R]
+	if p.Match(Equal) {
+		initializer, err = p.Expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !p.Match(Semicolon) {
+		return nil, p.Error(p.Peek(), "expect ';' after variable declaration")
+	}
+	return &VarDeclStmt[R]{Name: name, Initializer: initializer}, nil
 }
 
 // Statement ->  PrintStatement | ExpressionStatement ;
@@ -59,13 +86,33 @@ func (p *Parser[R]) ExpressionStatement() (Stmt[R], error) {
 	return &ExpressionStmt[R]{Expr: expr}, nil
 }
 
-// Expression -> Equality ;
+// Expression -> Assignment ;
 func (p *Parser[R]) Expression() (Expr[R], error) {
-	return p.Equality()
+	return p.Assignment()
+}
+
+// Assignment -> IDENTIFIER "=" Assignment | Equality ;
+func (p *Parser[R]) Assignment() (Expr[R], error) {
+	expr, err := p.Equality()
+	if err != nil {
+		return nil, err
+	}
+	if p.Match(Equal) {
+		equals := p.Previous()
+		value, err := p.Assignment()
+		if err != nil {
+			return nil, err
+		}
+		if varExpr, ok := expr.(*VariableExpr[R]); ok {
+			return &AssignExpr[R]{Name: varExpr.Name, Value: value}, nil
+		}
+		return nil, p.Error(equals, "invalid assignment target")
+	}
+	return expr, nil
 }
 
 // Equality -> Comparison ( ( "!=" | "==" ) Comparison )* ;
-func (p *Parser[R]) Equality() (zero Expr[R], err error) {
+func (p *Parser[R]) Equality() (zero Expr[R], _ error) {
 	expr, err := p.Comparison()
 	if err != nil {
 		return zero, err
@@ -86,7 +133,7 @@ func (p *Parser[R]) Equality() (zero Expr[R], err error) {
 }
 
 // Comparison -> Term ( ( ">" | ">=" | "<" | "<=" ) Term )* ;
-func (p *Parser[R]) Comparison() (zero Expr[R], error error) {
+func (p *Parser[R]) Comparison() (zero Expr[R], _ error) {
 	expr, err := p.Term()
 	if err != nil {
 		return zero, err
@@ -107,7 +154,7 @@ func (p *Parser[R]) Comparison() (zero Expr[R], error error) {
 }
 
 // Term -> Factor ( ( "-" | "+" ) Factor )* ;
-func (p *Parser[R]) Term() (zero Expr[R], error error) {
+func (p *Parser[R]) Term() (zero Expr[R], _ error) {
 	expr, err := p.Factor()
 	if err != nil {
 		return zero, err
@@ -128,7 +175,7 @@ func (p *Parser[R]) Term() (zero Expr[R], error error) {
 }
 
 // Factor -> Unary ( ( "/" | "*" ) Unary )* ;
-func (p *Parser[R]) Factor() (zero Expr[R], error error) {
+func (p *Parser[R]) Factor() (zero Expr[R], _ error) {
 	expr, err := p.Unary()
 	if err != nil {
 		return zero, err
@@ -149,7 +196,7 @@ func (p *Parser[R]) Factor() (zero Expr[R], error error) {
 }
 
 // Unary -> ( "!" | "-" ) Unary | Primary ;
-func (p *Parser[R]) Unary() (zero Expr[R], error error) {
+func (p *Parser[R]) Unary() (zero Expr[R], _ error) {
 	if p.Match(Bang, Minus) {
 		operator := p.Previous()
 		right, err := p.Unary()
@@ -164,8 +211,8 @@ func (p *Parser[R]) Unary() (zero Expr[R], error error) {
 	return p.Primary()
 }
 
-// Primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" Expression ")" ;
-func (p *Parser[R]) Primary() (zero Expr[R], error error) {
+// Primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" Expression ")" | IDENTIFIER ;
+func (p *Parser[R]) Primary() (zero Expr[R], _ error) {
 	if p.Match(False) {
 		return &LiteralExpr[R]{Value: false}, nil
 	}
@@ -177,6 +224,9 @@ func (p *Parser[R]) Primary() (zero Expr[R], error error) {
 	}
 	if p.Match(Number, String) {
 		return &LiteralExpr[R]{Value: p.Previous().Literal}, nil
+	}
+	if p.Match(Identifier) {
+		return &VariableExpr[R]{Name: p.Previous()}, nil
 	}
 	if p.Match(LeftParen) {
 		expr, err := p.Expression()

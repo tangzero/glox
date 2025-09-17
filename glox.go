@@ -13,15 +13,25 @@ func RunFile(path string) error {
 	if err != nil {
 		return fmt.Errorf("could not read file: %v", err)
 	}
-	return Run(string(bytes))
+	program, err := Parse[any](string(bytes))
+	if err != nil {
+		return err
+	}
+	return NewInterpreter().Interpret(program)
 }
 
 func RunPrompt() error {
+	interpreter := NewInterpreter()
 	fmt.Println("Glox REPL. Press Ctrl+C to exit.")
 	prompt := "> "
 	scanner := bufio.NewScanner(os.Stdin)
 	for fmt.Print(prompt); scanner.Scan(); fmt.Print(prompt) {
-		if err := Run(scanner.Text()); err != nil {
+		program, err := Parse[any](scanner.Text())
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		if err := interpreter.Interpret(program); err != nil {
 			fmt.Println(err)
 		}
 	}
@@ -31,15 +41,11 @@ func RunPrompt() error {
 	return nil
 }
 
-func Run(source string) error {
+func Parse[R any](source string) (Program[R], error) {
 	scanner := NewScanner(source)
 	tokens, err := scanner.ScanTokens()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	program, err := NewParser[any](tokens).Parse()
-	if err != nil {
-		return err
-	}
-	return new(Interpreter).Interpret(program)
+	return NewParser[R](tokens).Parse()
 }
