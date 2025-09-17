@@ -25,12 +25,19 @@ func RunPrompt() error {
 	fmt.Println("Glox REPL. Press Ctrl+C to exit.")
 	prompt := "> "
 	scanner := bufio.NewScanner(os.Stdin)
+
 	for fmt.Print(prompt); scanner.Scan(); fmt.Print(prompt) {
 		program, err := Parse[any](scanner.Text())
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
+
+		// if the input is a single expression, wrap it in a print statement.
+		if expr, ok := program[0].(*ExpressionStmt[any]); ok && len(program) == 1 {
+			program = Program[any]{&PrintStmt[any]{Expr: expr.Expr}}
+		}
+
 		if err := interpreter.Interpret(program); err != nil {
 			fmt.Println(err)
 		}
