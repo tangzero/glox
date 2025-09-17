@@ -37,14 +37,9 @@ func Run(source string) error {
 	if err != nil {
 		return err
 	}
-	expr, err := NewParser[any](tokens).Parse()
+	program, err := NewParser[any](tokens).Parse()
 	if err != nil {
 		return err
 	}
-	result, err := new(Interpreter).Interpret(expr)
-	if err != nil {
-		return err
-	}
-	fmt.Println(result)
-	return nil
+	return new(Interpreter).Interpret(program)
 }

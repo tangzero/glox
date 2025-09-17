@@ -11,8 +11,52 @@ func NewParser[R any](tokens []Token) *Parser[R] {
 	return &Parser[R]{Tokens: tokens}
 }
 
-func (p *Parser[R]) Parse() (Expr[R], error) {
-	return p.Expression()
+func (p *Parser[R]) Parse() (Program[R], error) {
+	return p.Program()
+}
+
+func (p *Parser[R]) Program() (Program[R], error) {
+	var satements []Stmt[R]
+	for !p.IsAtEnd() {
+		stmt, err := p.Statement()
+		if err != nil {
+			return nil, err
+		}
+		satements = append(satements, stmt)
+	}
+	return satements, nil
+}
+
+// Statement ->  PrintStatement | ExpressionStatement ;
+func (p *Parser[R]) Statement() (Stmt[R], error) {
+	if p.Match(Print) {
+		return p.PrintStatement()
+	}
+	return p.ExpressionStatement()
+}
+
+// PrintStatement -> "print" Expression ";" ;
+func (p *Parser[R]) PrintStatement() (Stmt[R], error) {
+	expr, err := p.Expression()
+	if err != nil {
+		return nil, err
+	}
+	if !p.Match(Semicolon) {
+		return nil, p.Error(p.Peek(), "expect ';' after value")
+	}
+	return &PrintStmt[R]{Expr: expr}, nil
+}
+
+// ExpressionStatement -> Expression ";" ;
+func (p *Parser[R]) ExpressionStatement() (Stmt[R], error) {
+	expr, err := p.Expression()
+	if err != nil {
+		return nil, err
+	}
+	if !p.Match(Semicolon) {
+		return nil, p.Error(p.Peek(), "expect ';' after expression")
+	}
+	return &ExpressionStmt[R]{Expr: expr}, nil
 }
 
 // Expression -> Equality ;

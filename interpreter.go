@@ -100,12 +100,35 @@ func (i *Interpreter) VisitUnaryExpr(expr *UnaryExpr[any]) (any, error) {
 	panic("unreachable")
 }
 
-func (i *Interpreter) Interpret(expr Expr[any]) (any, error) {
-	return i.Evaluate(expr)
-}
-
 func (i *Interpreter) Evaluate(expr Expr[any]) (any, error) {
 	return expr.Accept(i)
+}
+
+func (i *Interpreter) VisitExpressionStmt(stmt *ExpressionStmt[any]) error {
+	_, err := i.Evaluate(stmt.Expr)
+	return err
+}
+
+func (i *Interpreter) VisitPrintStmt(stmt *PrintStmt[any]) error {
+	value, err := i.Evaluate(stmt.Expr)
+	if err != nil {
+		return err
+	}
+	fmt.Println(value)
+	return nil
+}
+
+func (i *Interpreter) Execute(stmt Stmt[any]) error {
+	return stmt.Accept(i)
+}
+
+func (i *Interpreter) Interpret(program Program[any]) error {
+	for _, stmt := range program {
+		if err := i.Execute(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func isTruthy(value any) bool {

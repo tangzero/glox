@@ -1,16 +1,21 @@
 package glox
 
-import "fmt"
+type Program[R any] []Stmt[R]
 
 type Visitor[R any] interface {
+	ExprVisitor[R]
+	StmtVisitor[R]
+}
+
+type Expr[R any] interface {
+	Accept(visitor ExprVisitor[R]) (R, error)
+}
+
+type ExprVisitor[R any] interface {
 	VisitBinaryExpr(expr *BinaryExpr[R]) (R, error)
 	VisitGroupingExpr(expr *GroupingExpr[R]) (R, error)
 	VisitLiteralExpr(expr *LiteralExpr[R]) (R, error)
 	VisitUnaryExpr(expr *UnaryExpr[R]) (R, error)
-}
-
-type Expr[R any] interface {
-	Accept(visitor Visitor[R]) (R, error)
 }
 
 type BinaryExpr[R any] struct {
@@ -19,7 +24,7 @@ type BinaryExpr[R any] struct {
 	Right    Expr[R]
 }
 
-func (b *BinaryExpr[R]) Accept(visitor Visitor[R]) (R, error) {
+func (b *BinaryExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
 	return visitor.VisitBinaryExpr(b)
 }
 
@@ -27,7 +32,7 @@ type GroupingExpr[R any] struct {
 	Expression Expr[R]
 }
 
-func (g *GroupingExpr[R]) Accept(visitor Visitor[R]) (R, error) {
+func (g *GroupingExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
 	return visitor.VisitGroupingExpr(g)
 }
 
@@ -35,7 +40,7 @@ type LiteralExpr[R any] struct {
 	Value any
 }
 
-func (l *LiteralExpr[R]) Accept(visitor Visitor[R]) (R, error) {
+func (l *LiteralExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
 	return visitor.VisitLiteralExpr(l)
 }
 
@@ -44,46 +49,31 @@ type UnaryExpr[R any] struct {
 	Right    Expr[R]
 }
 
-func (u *UnaryExpr[R]) Accept(visitor Visitor[R]) (R, error) {
+func (u *UnaryExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
 	return visitor.VisitUnaryExpr(u)
 }
 
-var _ Visitor[string] = &ASTPrinter{}
-
-type ASTPrinter struct{}
-
-func (a *ASTPrinter) Print(expr Expr[string]) (string, error) {
-	return expr.Accept(a)
+type Stmt[R any] interface {
+	Accept(visitor StmtVisitor[R]) error
 }
 
-func (a *ASTPrinter) VisitBinaryExpr(expr *BinaryExpr[string]) (string, error) {
-	return a.Parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right)
+type StmtVisitor[R any] interface {
+	VisitExpressionStmt(stmt *ExpressionStmt[R]) error
+	VisitPrintStmt(stmt *PrintStmt[R]) error
 }
 
-func (a *ASTPrinter) VisitGroupingExpr(expr *GroupingExpr[string]) (string, error) {
-	return a.Parenthesize("group", expr.Expression)
+type ExpressionStmt[R any] struct {
+	Expr Expr[R]
 }
 
-func (a *ASTPrinter) VisitLiteralExpr(expr *LiteralExpr[string]) (string, error) {
-	if expr.Value == nil {
-		return "nil", nil
-	}
-	return fmt.Sprintf("%v", expr.Value), nil
+func (e *ExpressionStmt[R]) Accept(visitor StmtVisitor[R]) error {
+	return visitor.VisitExpressionStmt(e)
 }
 
-func (a *ASTPrinter) VisitUnaryExpr(expr *UnaryExpr[string]) (string, error) {
-	return a.Parenthesize(expr.Operator.Lexeme, expr.Right)
+type PrintStmt[R any] struct {
+	Expr Expr[R]
 }
 
-func (a *ASTPrinter) Parenthesize(name string, exprs ...Expr[string]) (string, error) {
-	result := "(" + name
-	for _, expr := range exprs {
-		value, err := expr.Accept(a)
-		if err != nil {
-			return "", err
-		}
-		result += " " + value
-	}
-	result += ")"
-	return result, nil
+func (p *PrintStmt[R]) Accept(visitor StmtVisitor[R]) error {
+	return visitor.VisitPrintStmt(p)
 }
