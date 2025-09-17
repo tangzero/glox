@@ -5,11 +5,11 @@ import (
 )
 
 type Interpreter struct {
-	env Environment
+	env Env
 }
 
 func NewInterpreter() *Interpreter {
-	return &Interpreter{env: Environment{}}
+	return &Interpreter{env: NewEnvironment(nil)}
 }
 
 func (i *Interpreter) VisitBinaryExpr(expr *BinaryExpr[any]) (any, error) {
@@ -144,6 +144,22 @@ func (i *Interpreter) VisitVarDeclStmt(stmt *VarDeclStmt[any]) error {
 		return err
 	}
 	i.env.Define(stmt.Name, value)
+	return nil
+}
+
+func (i *Interpreter) VisitBlockStmt(stmt *BlockStmt[any]) error {
+	return i.ExecuteBlock(stmt.Statements, NewEnvironment(i.env))
+}
+
+func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {
+	previous := i.env
+	i.env = env
+	defer func() { i.env = previous }()
+	for _, stmt := range statements {
+		if err := i.Execute(stmt); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -15,6 +15,7 @@ func (p *Parser[R]) Parse() (Program[R], error) {
 	return p.Program()
 }
 
+// Program -> Declaration* EOF ;
 func (p *Parser[R]) Program() (Program[R], error) {
 	var program Program[R]
 	for !p.IsAtEnd() {
@@ -54,10 +55,13 @@ func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
 	return &VarDeclStmt[R]{Name: name, Initializer: initializer}, nil
 }
 
-// Statement ->  PrintStatement | ExpressionStatement ;
+// Statement -> PrintStatement | ExpressionStatement | Block ;
 func (p *Parser[R]) Statement() (Stmt[R], error) {
 	if p.Match(Print) {
 		return p.PrintStatement()
+	}
+	if p.Match(LeftBrace) {
+		return p.Block()
 	}
 	return p.ExpressionStatement()
 }
@@ -84,6 +88,22 @@ func (p *Parser[R]) ExpressionStatement() (Stmt[R], error) {
 		return nil, p.Error(p.Peek(), "expect ';' after expression")
 	}
 	return &ExpressionStmt[R]{Expr: expr}, nil
+}
+
+// Block -> "{" Declaration* "}" ;
+func (p *Parser[R]) Block() (Stmt[R], error) {
+	var statements []Stmt[R]
+	for !p.Check(RightBrace) && !p.IsAtEnd() {
+		stmt, err := p.Declaration()
+		if err != nil {
+			return nil, err
+		}
+		statements = append(statements, stmt)
+	}
+	if !p.Match(RightBrace) {
+		return nil, p.Error(p.Peek(), "expect '}' after block")
+	}
+	return &BlockStmt[R]{Statements: statements}, nil
 }
 
 // Expression -> Assignment ;
