@@ -202,6 +202,39 @@ func (i *Interpreter) VisitWhileStmt(stmt *WhileStmt[any]) error {
 	return nil
 }
 
+func (i *Interpreter) VisitForStmt(stmt *ForStmt[any]) error {
+	// using a new environment to avoid variable leakage
+	previously := i.env
+	i.env = NewEnvironment(i.env)
+	defer func() { i.env = previously }()
+
+	if stmt.Initializer != nil {
+		if err := i.Execute(stmt.Initializer); err != nil {
+			return err
+		}
+	}
+	for {
+		if stmt.Condition != nil {
+			condition, err := i.Evaluate(stmt.Condition)
+			if err != nil {
+				return err
+			}
+			if !isTruthy(condition) {
+				break
+			}
+		}
+		if err := i.Execute(stmt.Body); err != nil {
+			return err
+		}
+		if stmt.Increment != nil {
+			if _, err := i.Evaluate(stmt.Increment); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {
 	previous := i.env
 	i.env = env

@@ -55,13 +55,22 @@ func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
 	return &VarDeclStmt[R]{Name: name, Initializer: initializer}, nil
 }
 
-// Statement -> IfStatement | WhileStatement | PrintStatement |  Block | ExpressionStatement;
+// Statement -> IfStatement
+//
+//	| WhileStatement
+//	| ForStatement
+//	| PrintStatement
+//	| Block
+//	| ExpressionStatement;
 func (p *Parser[R]) Statement() (Stmt[R], error) {
 	if p.Match(If) {
 		return p.IfStatement()
 	}
 	if p.Match(While) {
 		return p.WhileStatement()
+	}
+	if p.Match(For) {
+		return p.ForStatement()
 	}
 	if p.Match(Print) {
 		return p.PrintStatement()
@@ -121,6 +130,58 @@ func (p *Parser[R]) WhileStatement() (Stmt[R], error) {
 	return &WhileStmt[R]{
 		Condition: condition,
 		Body:      body,
+	}, nil
+}
+
+// ForStatement -> "for" "(" ( VarDeclaration | ExpressionStatement | ";" ) Expression? ";" Expression? ")" Statement ;
+func (p *Parser[R]) ForStatement() (Stmt[R], error) {
+	if !p.Match(LeftParen) {
+		return nil, p.Error(p.Peek(), "expect '(' after 'for'")
+	}
+	var initializer Stmt[R]
+	var err error
+	if p.Match(Semicolon) {
+		initializer = nil // not needed, but explicit
+	} else if p.Match(Var) {
+		initializer, err = p.VarDeclaration()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		initializer, err = p.ExpressionStatement()
+		if err != nil {
+			return nil, err
+		}
+	}
+	var condition Expr[R]
+	if !p.Check(Semicolon) {
+		condition, err = p.Expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !p.Match(Semicolon) {
+		return nil, p.Error(p.Peek(), "expect ';' after loop condition")
+	}
+	var increment Expr[R]
+	if !p.Check(RightParen) {
+		increment, err = p.Expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !p.Match(RightParen) {
+		return nil, p.Error(p.Peek(), "expect ')' after for clauses")
+	}
+	body, err := p.Statement()
+	if err != nil {
+		return nil, err
+	}
+	return &ForStmt[R]{
+		Initializer: initializer,
+		Condition:   condition,
+		Increment:   increment,
+		Body:        body,
 	}, nil
 }
 
