@@ -153,6 +153,20 @@ func (i *Interpreter) VisitBlockStmt(stmt *BlockStmt[any]) error {
 	return i.ExecuteBlock(stmt.Statements, NewEnvironment(i.env))
 }
 
+func (i *Interpreter) VisitIfStmt(stmt *IfStmt[any]) error {
+	condition, err := i.Evaluate(stmt.Condition)
+	if err != nil {
+		return err
+	}
+	if isTruthy(condition) {
+		return i.Execute(stmt.ThenBranch)
+	}
+	if stmt.ElseBranch != nil {
+		return i.Execute(stmt.ElseBranch)
+	}
+	return nil
+}
+
 func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {
 	previous := i.env
 	i.env = env

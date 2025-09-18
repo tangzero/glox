@@ -55,8 +55,11 @@ func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
 	return &VarDeclStmt[R]{Name: name, Initializer: initializer}, nil
 }
 
-// Statement -> PrintStatement | ExpressionStatement | Block ;
+// Statement -> IfStatement | PrintStatement |  Block | ExpressionStatement;
 func (p *Parser[R]) Statement() (Stmt[R], error) {
+	if p.Match(If) {
+		return p.IfStatement()
+	}
 	if p.Match(Print) {
 		return p.PrintStatement()
 	}
@@ -64,6 +67,36 @@ func (p *Parser[R]) Statement() (Stmt[R], error) {
 		return p.Block()
 	}
 	return p.ExpressionStatement()
+}
+
+// IfStatement -> "if" "(" Expression ")" Statement ( "else" Statement )? ;
+func (p *Parser[R]) IfStatement() (Stmt[R], error) {
+	if !p.Match(LeftParen) {
+		return nil, p.Error(p.Peek(), "expect '(' after 'if'")
+	}
+	condition, err := p.Expression()
+	if err != nil {
+		return nil, err
+	}
+	if !p.Match(RightParen) {
+		return nil, p.Error(p.Peek(), "expect ')' after if condition")
+	}
+	thenBranch, err := p.Statement()
+	if err != nil {
+		return nil, err
+	}
+	var elseBranch Stmt[R]
+	if p.Match(Else) {
+		elseBranch, err = p.Statement()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &IfStmt[R]{
+		Condition:  condition,
+		ThenBranch: thenBranch,
+		ElseBranch: elseBranch,
+	}, nil
 }
 
 // PrintStatement -> "print" Expression ";" ;

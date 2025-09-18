@@ -81,6 +81,7 @@ type StmtVisitor[R any] interface {
 	VisitPrintStmt(stmt *PrintStmt[R]) error
 	VisitVarDeclStmt(stmt *VarDeclStmt[R]) error
 	VisitBlockStmt(stmt *BlockStmt[R]) error
+	VisitIfStmt(stmt *IfStmt[R]) error
 }
 
 type ExpressionStmt[R any] struct {
@@ -114,4 +115,14 @@ type BlockStmt[R any] struct {
 
 func (b *BlockStmt[R]) Accept(visitor StmtVisitor[R]) error {
 	return visitor.VisitBlockStmt(b)
+}
+
+type IfStmt[R any] struct {
+	Condition  Expr[R]
+	ThenBranch Stmt[R]
+	ElseBranch Stmt[R]
+}
+
+func (i *IfStmt[R]) Accept(visitor StmtVisitor[R]) error {
+	return visitor.VisitIfStmt(i)
 }
