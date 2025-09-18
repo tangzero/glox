@@ -73,8 +73,9 @@ func (i *Interpreter) VisitBinaryExpr(expr *BinaryExpr[any]) (any, error) {
 			return fmt.Sprintf("%v%v", left, right), nil
 		}
 		return nil, Error(expr.Operator.Line, fmt.Sprintf("'+' operation not supported for %T and %T.", left, right))
+	default:
+		return nil, Error(expr.Operator.Line, "unknown binary operator.")
 	}
-	panic("unreachable")
 }
 
 func (i *Interpreter) VisitGroupingExpr(expr *GroupingExpr[any]) (any, error) {
@@ -99,8 +100,9 @@ func (i *Interpreter) VisitUnaryExpr(expr *UnaryExpr[any]) (any, error) {
 		return -(right.(float64)), nil
 	case Bang:
 		return !isTruthy(right), nil
+	default:
+		return nil, Error(expr.Operator.Line, "unknown unary operator.")
 	}
-	panic("unreachable")
 }
 
 func (i *Interpreter) VisitVariableExpr(expr *VariableExpr[any]) (any, error) {
