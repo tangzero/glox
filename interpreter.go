@@ -186,6 +186,22 @@ func (i *Interpreter) VisitIfStmt(stmt *IfStmt[any]) error {
 	return nil
 }
 
+func (i *Interpreter) VisitWhileStmt(stmt *WhileStmt[any]) error {
+	for {
+		condition, err := i.Evaluate(stmt.Condition)
+		if err != nil {
+			return err
+		}
+		if !isTruthy(condition) {
+			break
+		}
+		if err := i.Execute(stmt.Body); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {
 	previous := i.env
 	i.env = env

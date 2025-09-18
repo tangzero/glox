@@ -55,10 +55,13 @@ func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
 	return &VarDeclStmt[R]{Name: name, Initializer: initializer}, nil
 }
 
-// Statement -> IfStatement | PrintStatement |  Block | ExpressionStatement;
+// Statement -> IfStatement | WhileStatement | PrintStatement |  Block | ExpressionStatement;
 func (p *Parser[R]) Statement() (Stmt[R], error) {
 	if p.Match(If) {
 		return p.IfStatement()
+	}
+	if p.Match(While) {
+		return p.WhileStatement()
 	}
 	if p.Match(Print) {
 		return p.PrintStatement()
@@ -96,6 +99,28 @@ func (p *Parser[R]) IfStatement() (Stmt[R], error) {
 		Condition:  condition,
 		ThenBranch: thenBranch,
 		ElseBranch: elseBranch,
+	}, nil
+}
+
+// WhileStatement -> "while" "(" Expression ")" Statement ;
+func (p *Parser[R]) WhileStatement() (Stmt[R], error) {
+	if !p.Match(LeftParen) {
+		return nil, p.Error(p.Peek(), "expect '(' after 'while'")
+	}
+	condition, err := p.Expression()
+	if err != nil {
+		return nil, err
+	}
+	if !p.Match(RightParen) {
+		return nil, p.Error(p.Peek(), "expect ')' after condition")
+	}
+	body, err := p.Statement()
+	if err != nil {
+		return nil, err
+	}
+	return &WhileStmt[R]{
+		Condition: condition,
+		Body:      body,
 	}, nil
 }
 

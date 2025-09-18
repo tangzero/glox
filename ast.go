@@ -93,6 +93,7 @@ type StmtVisitor[R any] interface {
 	VisitVarDeclStmt(stmt *VarDeclStmt[R]) error
 	VisitBlockStmt(stmt *BlockStmt[R]) error
 	VisitIfStmt(stmt *IfStmt[R]) error
+	VisitWhileStmt(stmt *WhileStmt[R]) error
 }
 
 type ExpressionStmt[R any] struct {
@@ -136,4 +137,13 @@ type IfStmt[R any] struct {
 
 func (i *IfStmt[R]) Accept(visitor StmtVisitor[R]) error {
 	return visitor.VisitIfStmt(i)
+}
+
+type WhileStmt[R any] struct {
+	Condition Expr[R]
+	Body      Stmt[R]
+}
+
+func (w *WhileStmt[R]) Accept(visitor StmtVisitor[R]) error {
+	return visitor.VisitWhileStmt(w)
 }
