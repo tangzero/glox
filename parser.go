@@ -134,12 +134,11 @@ func (p *Parser[R]) WhileStatement() (Stmt[R], error) {
 }
 
 // ForStatement -> "for" "(" ( VarDeclaration | ExpressionStatement | ";" ) Expression? ";" Expression? ")" Statement ;
-func (p *Parser[R]) ForStatement() (Stmt[R], error) {
+func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
 	if !p.Match(LeftParen) {
 		return nil, p.Error(p.Peek(), "expect '(' after 'for'")
 	}
 	var initializer Stmt[R]
-	var err error
 	if p.Match(Semicolon) {
 		initializer = nil // not needed, but explicit
 	} else if p.Match(Var) {
@@ -153,7 +152,7 @@ func (p *Parser[R]) ForStatement() (Stmt[R], error) {
 			return nil, err
 		}
 	}
-	var condition Expr[R]
+	var condition Expr[R] = &LiteralExpr[R]{Value: true} // default to true
 	if !p.Check(Semicolon) {
 		condition, err = p.Expression()
 		if err != nil {
@@ -177,12 +176,32 @@ func (p *Parser[R]) ForStatement() (Stmt[R], error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ForStmt[R]{
-		Initializer: initializer,
-		Condition:   condition,
-		Increment:   increment,
-		Body:        body,
-	}, nil
+
+	// desugar for loop into while loop
+	if increment != nil {
+		body = &BlockStmt[R]{
+			Statements: []Stmt[R]{
+				body,
+				&ExpressionStmt[R]{Expr: increment},
+			},
+		}
+	}
+
+	body = &WhileStmt[R]{
+		Condition: condition,
+		Body:      body,
+	}
+
+	if initializer != nil {
+		body = &BlockStmt[R]{
+			Statements: []Stmt[R]{
+				initializer,
+				body,
+			},
+		}
+	}
+
+	return body, nil
 }
 
 // PrintStatement -> "print" Expression ";" ;
