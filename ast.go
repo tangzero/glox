@@ -18,6 +18,7 @@ type ExprVisitor[R any] interface {
 	VisitUnaryExpr(expr *UnaryExpr[R]) (R, error)
 	VisitVariableExpr(expr *VariableExpr[R]) (R, error)
 	VisitAssignExpr(expr *AssignExpr[R]) (R, error)
+	VisitLogicalExpr(expr *LogicalExpr[R]) (R, error)
 }
 
 type BinaryExpr[R any] struct {
@@ -70,6 +71,16 @@ type AssignExpr[R any] struct {
 
 func (a *AssignExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
 	return visitor.VisitAssignExpr(a)
+}
+
+type LogicalExpr[R any] struct {
+	Left     Expr[R]
+	Operator Token
+	Right    Expr[R]
+}
+
+func (l *LogicalExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+	return visitor.VisitLogicalExpr(l)
 }
 
 type Stmt[R any] interface {

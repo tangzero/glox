@@ -144,9 +144,9 @@ func (p *Parser[R]) Expression() (Expr[R], error) {
 	return p.Assignment()
 }
 
-// Assignment -> IDENTIFIER "=" Assignment | Equality ;
+// Assignment -> IDENTIFIER "=" Assignment | LogicalOr ;
 func (p *Parser[R]) Assignment() (Expr[R], error) {
-	expr, err := p.Equality()
+	expr, err := p.LogicalOr()
 	if err != nil {
 		return nil, err
 	}
@@ -160,6 +160,48 @@ func (p *Parser[R]) Assignment() (Expr[R], error) {
 			return &AssignExpr[R]{Name: varExpr.Name, Value: value}, nil
 		}
 		return nil, p.Error(equals, "invalid assignment target")
+	}
+	return expr, nil
+}
+
+// LogicalOr -> LogicalAnd ( "or" LogicalAnd )* ;
+func (p *Parser[R]) LogicalOr() (zero Expr[R], _ error) {
+	expr, err := p.LogicalAnd()
+	if err != nil {
+		return zero, err
+	}
+	for p.Match(Or) {
+		operator := p.Previous()
+		right, err := p.LogicalAnd()
+		if err != nil {
+			return zero, err
+		}
+		expr = &LogicalExpr[R]{
+			Left:     expr,
+			Operator: operator,
+			Right:    right,
+		}
+	}
+	return expr, nil
+}
+
+// LogicalAnd -> Equality ( "and" Equality )* ;
+func (p *Parser[R]) LogicalAnd() (zero Expr[R], _ error) {
+	expr, err := p.Equality()
+	if err != nil {
+		return zero, err
+	}
+	for p.Match(And) {
+		operator := p.Previous()
+		right, err := p.Equality()
+		if err != nil {
+			return zero, err
+		}
+		expr = &LogicalExpr[R]{
+			Left:     expr,
+			Operator: operator,
+			Right:    right,
+		}
 	}
 	return expr, nil
 }

@@ -117,6 +117,25 @@ func (i *Interpreter) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
 	return value, i.env.Assign(expr.Name, value)
 }
 
+func (i *Interpreter) VisitLogicalExpr(expr *LogicalExpr[any]) (any, error) {
+	left, err := i.Evaluate(expr.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if expr.Operator.Type == Or {
+		if isTruthy(left) {
+			return left, nil
+		}
+	} else {
+		if !isTruthy(left) {
+			return left, nil
+		}
+	}
+
+	return i.Evaluate(expr.Right)
+}
+
 func (i *Interpreter) Evaluate(expr Expr[any]) (any, error) {
 	return expr.Accept(i)
 }
