@@ -1,6 +1,7 @@
 package glox
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -196,10 +197,28 @@ func (i *Interpreter) VisitWhileStmt(stmt *WhileStmt[any]) error {
 			break
 		}
 		if err := i.Execute(stmt.Body); err != nil {
+			if err == ErrBreak {
+				break
+			}
+			if err == ErrContinue {
+				continue
+			}
 			return err
 		}
 	}
 	return nil
+}
+
+var ErrBreak = errors.New("break")
+
+func (i *Interpreter) VisitBreakStmt(*BreakStmt[any]) error {
+	return ErrBreak
+}
+
+var ErrContinue = errors.New("continue")
+
+func (i *Interpreter) VisitContinueStmt(*ContinueStmt[any]) error {
+	return ErrContinue
 }
 
 func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {

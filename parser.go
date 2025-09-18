@@ -3,8 +3,9 @@ package glox
 import "slices"
 
 type Parser[R any] struct {
-	Tokens  []Token
-	Current int
+	Tokens     []Token
+	Current    int
+	InsideLoop bool
 }
 
 func NewParser[R any](tokens []Token) *Parser[R] {
@@ -57,11 +58,13 @@ func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
 
 // Statement -> IfStatement
 //
-//	| WhileStatement
-//	| ForStatement
-//	| PrintStatement
-//	| Block
-//	| ExpressionStatement;
+//			| WhileStatement
+//			| ForStatement
+//			| PrintStatement
+//			| Block
+//	    | BreakStatement
+//	    | ContinueStatement
+//			| ExpressionStatement ;
 func (p *Parser[R]) Statement() (Stmt[R], error) {
 	if p.Match(If) {
 		return p.IfStatement()
@@ -77,6 +80,12 @@ func (p *Parser[R]) Statement() (Stmt[R], error) {
 	}
 	if p.Match(LeftBrace) {
 		return p.Block()
+	}
+	if p.Match(Break) {
+		return p.BreakStatement()
+	}
+	if p.Match(Continue) {
+		return p.ContinueStatement()
 	}
 	return p.ExpressionStatement()
 }
@@ -123,10 +132,14 @@ func (p *Parser[R]) WhileStatement() (Stmt[R], error) {
 	if !p.Match(RightParen) {
 		return nil, p.Error(p.Peek(), "expect ')' after condition")
 	}
+
+	p.InsideLoop = true
 	body, err := p.Statement()
 	if err != nil {
 		return nil, err
 	}
+	p.InsideLoop = false
+
 	return &WhileStmt[R]{
 		Condition: condition,
 		Body:      body,
@@ -172,10 +185,13 @@ func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
 	if !p.Match(RightParen) {
 		return nil, p.Error(p.Peek(), "expect ')' after for clauses")
 	}
+
+	p.InsideLoop = true
 	body, err := p.Statement()
 	if err != nil {
 		return nil, err
 	}
+	p.InsideLoop = false
 
 	// desugar for loop into while loop
 	if increment != nil {
@@ -242,6 +258,28 @@ func (p *Parser[R]) Block() (Stmt[R], error) {
 		return nil, p.Error(p.Peek(), "expect '}' after block")
 	}
 	return &BlockStmt[R]{Statements: statements}, nil
+}
+
+// BreakStatement -> "break" ";" ;
+func (p *Parser[R]) BreakStatement() (Stmt[R], error) {
+	if !p.InsideLoop {
+		return nil, p.Error(p.Previous(), "unexpected 'break' outside a loop")
+	}
+	if !p.Match(Semicolon) {
+		return nil, p.Error(p.Peek(), "expect ';' after 'break'")
+	}
+	return &BreakStmt[R]{}, nil
+}
+
+// ContinueStatement -> "continue" ";" ;
+func (p *Parser[R]) ContinueStatement() (Stmt[R], error) {
+	if !p.InsideLoop {
+		return nil, p.Error(p.Previous(), "unexpected 'continue' outside a loop")
+	}
+	if !p.Match(Semicolon) {
+		return nil, p.Error(p.Peek(), "expect ';' after 'continue'")
+	}
+	return &ContinueStmt[R]{}, nil
 }
 
 // Expression -> Assignment ;

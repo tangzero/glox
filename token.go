@@ -50,6 +50,8 @@ const (
 	True
 	Var
 	While
+	Break
+	Continue
 
 	EOF
 )
