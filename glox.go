@@ -68,6 +68,20 @@ func DefaultGlobals() Env {
 			return float64(time.Now().UnixMilli()), nil
 		},
 	))
+	env.Define("prompt", NewCallable(
+		func() int { return 1 },
+		func(i *Interpreter, args []any) (any, error) {
+			fmt.Println(args[0])
+			scanner := bufio.NewScanner(os.Stdin)
+			if scanner.Scan() {
+				return scanner.Text(), nil
+			}
+			if err := scanner.Err(); err != nil {
+				return nil, fmt.Errorf("error reading input: %v", err)
+			}
+			return "", nil
+		},
+	))
 
 	return env
 }
