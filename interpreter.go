@@ -243,6 +243,25 @@ func (i *Interpreter) VisitContinueStmt(*ContinueStmt[any]) error {
 	return ErrContinue
 }
 
+type ReturnValue struct {
+	Value any
+}
+
+func (r *ReturnValue) Error() string {
+	return "return"
+}
+
+func (i *Interpreter) VisitReturnStmt(stmt *ReturnStmt[any]) (err error) {
+	var value any
+	if stmt.Value != nil {
+		value, err = i.Evaluate(stmt.Value)
+		if err != nil {
+			return err
+		}
+	}
+	return &ReturnValue{value}
+}
+
 func (i *Interpreter) VisitFunctionStmt(stmt *FunctionStmt[any]) error {
 	name := "<fn " + stmt.Name.Lexeme + ">"
 	arity := len(stmt.Params)
@@ -253,6 +272,9 @@ func (i *Interpreter) VisitFunctionStmt(stmt *FunctionStmt[any]) error {
 		}
 		err := i.ExecuteBlock(stmt.Body, env)
 		if err != nil {
+			if ret, ok := err.(*ReturnValue); ok {
+				return ret.Value, nil
+			}
 			return nil, err
 		}
 		return nil, nil

@@ -108,6 +108,7 @@ type StmtVisitor[R any] interface {
 	VisitBreakStmt(stmt *BreakStmt[R]) error
 	VisitContinueStmt(stmt *ContinueStmt[R]) error
 	VisitFunctionStmt(stmt *FunctionStmt[R]) error
+	VisitReturnStmt(stmt *ReturnStmt[R]) error
 }
 
 type ExpressionStmt[R any] struct {
@@ -182,4 +183,13 @@ type FunctionStmt[R any] struct {
 
 func (f *FunctionStmt[R]) Accept(visitor StmtVisitor[R]) error {
 	return visitor.VisitFunctionStmt(f)
+}
+
+type ReturnStmt[R any] struct {
+	Keyword Token
+	Value   Expr[R]
+}
+
+func (r *ReturnStmt[R]) Accept(visitor StmtVisitor[R]) error {
+	return visitor.VisitReturnStmt(r)
 }

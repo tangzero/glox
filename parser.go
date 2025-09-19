@@ -3,9 +3,10 @@ package glox
 import "slices"
 
 type Parser[R any] struct {
-	Tokens     []Token
-	Current    int
-	LoopScopes int
+	Tokens        []Token
+	Current       int
+	LoopDepth     int
+	CallableDepth int
 }
 
 func NewParser[R any](tokens []Token) *Parser[R] {
@@ -62,10 +63,12 @@ func (p *Parser[R]) FunDeclaration(kind string) (_ Stmt[R], err error) {
 	if !p.Match(LeftBrace) {
 		return nil, p.Error(p.Peek(), "expect '{' before "+kind+" body")
 	}
+	p.CallableDepth++
 	body, err := p.Block()
 	if err != nil {
 		return nil, err
 	}
+	p.CallableDepth--
 	return &FunctionStmt[R]{
 		Name:   name,
 		Params: parameters,
@@ -118,6 +121,7 @@ func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
 //			| Block
 //	    | BreakStatement
 //	    | ContinueStatement
+//	    | ReturnStatement
 //			| ExpressionStatement ;
 func (p *Parser[R]) Statement() (Stmt[R], error) {
 	if p.Match(If) {
@@ -140,6 +144,9 @@ func (p *Parser[R]) Statement() (Stmt[R], error) {
 	}
 	if p.Match(Continue) {
 		return p.ContinueStatement()
+	}
+	if p.Match(Return) {
+		return p.ReturnStatement()
 	}
 	return p.ExpressionStatement()
 }
@@ -187,12 +194,12 @@ func (p *Parser[R]) WhileStatement() (Stmt[R], error) {
 		return nil, p.Error(p.Peek(), "expect ')' after condition")
 	}
 
-	p.LoopScopes++
+	p.LoopDepth++
 	body, err := p.Statement()
 	if err != nil {
 		return nil, err
 	}
-	p.LoopScopes--
+	p.LoopDepth--
 
 	return &WhileStmt[R]{
 		Condition: condition,
@@ -240,12 +247,12 @@ func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
 		return nil, p.Error(p.Peek(), "expect ')' after for clauses")
 	}
 
-	p.LoopScopes++
+	p.LoopDepth++
 	body, err := p.Statement()
 	if err != nil {
 		return nil, err
 	}
-	p.LoopScopes--
+	p.LoopDepth--
 
 	// desugar for loop into while loop
 	if increment != nil {
@@ -286,6 +293,25 @@ func (p *Parser[R]) PrintStatement() (Stmt[R], error) {
 	return &PrintStmt[R]{Expr: expr}, nil
 }
 
+// ReturnStatement -> "return" Expression? ";" ;
+func (p *Parser[R]) ReturnStatement() (_ Stmt[R], err error) {
+	if p.CallableDepth == 0 {
+		return nil, p.Error(p.Previous(), "unexpected 'return' outside a function/method")
+	}
+	keyword := p.Previous()
+	var value Expr[R]
+	if !p.Check(Semicolon) {
+		value, err = p.Expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !p.Match(Semicolon) {
+		return nil, p.Error(p.Peek(), "expect ';' after return value")
+	}
+	return &ReturnStmt[R]{Keyword: keyword, Value: value}, nil
+}
+
 // ExpressionStatement -> Expression ";" ;
 func (p *Parser[R]) ExpressionStatement() (Stmt[R], error) {
 	expr, err := p.Expression()
@@ -316,7 +342,7 @@ func (p *Parser[R]) Block() (*BlockStmt[R], error) {
 
 // BreakStatement -> "break" ";" ;
 func (p *Parser[R]) BreakStatement() (Stmt[R], error) {
-	if p.LoopScopes == 0 {
+	if p.LoopDepth == 0 {
 		return nil, p.Error(p.Previous(), "unexpected 'break' outside a loop")
 	}
 	if !p.Match(Semicolon) {
@@ -327,7 +353,7 @@ func (p *Parser[R]) BreakStatement() (Stmt[R], error) {
 
 // ContinueStatement -> "continue" ";" ;
 func (p *Parser[R]) ContinueStatement() (Stmt[R], error) {
-	if p.LoopScopes == 0 {
+	if p.LoopDepth == 0 {
 		return nil, p.Error(p.Previous(), "unexpected 'continue' outside a loop")
 	}
 	if !p.Match(Semicolon) {
