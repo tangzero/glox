@@ -107,6 +107,7 @@ type StmtVisitor[R any] interface {
 	VisitWhileStmt(stmt *WhileStmt[R]) error
 	VisitBreakStmt(stmt *BreakStmt[R]) error
 	VisitContinueStmt(stmt *ContinueStmt[R]) error
+	VisitFunctionStmt(stmt *FunctionStmt[R]) error
 }
 
 type ExpressionStmt[R any] struct {
@@ -171,4 +172,14 @@ type ContinueStmt[R any] struct{}
 
 func (c *ContinueStmt[R]) Accept(visitor StmtVisitor[R]) error {
 	return visitor.VisitContinueStmt(c)
+}
+
+type FunctionStmt[R any] struct {
+	Name   Token
+	Params []Token
+	Body   []Stmt[R]
+}
+
+func (f *FunctionStmt[R]) Accept(visitor StmtVisitor[R]) error {
+	return visitor.VisitFunctionStmt(f)
 }

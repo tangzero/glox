@@ -1,22 +1,21 @@
 package glox
 
-type (
-	Arity = func() int
-	Call  = func(interpreter *Interpreter, arguments []any) (any, error)
-)
+type Call = func(interpreter *Interpreter, arguments []any) (any, error)
 
 type Callable struct {
-	Arity Arity
+	Name  string
+	Arity int
 	Call  Call
 }
 
-func NewCallable(arity Arity, call Call) Callable {
+func NewCallable(name string, arity int, call Call) Callable {
 	return Callable{
+		Name:  name,
 		Arity: arity,
 		Call:  call,
 	}
 }
 
-func (Callable) String() string {
-	return "<callable>"
+func (c Callable) String() string {
+	return c.Name
 }

@@ -29,12 +29,66 @@ func (p *Parser[R]) Program() (Program[R], error) {
 	return program, nil
 }
 
-// Declaration -> VarDeclaration | Statement ;
+// Declaration -> FunDeclaration | VarDeclaration | Statement ;
 func (p *Parser[R]) Declaration() (Stmt[R], error) {
+	if p.Match(Fun) {
+		return p.FunDeclaration("function")
+	}
 	if p.Match(Var) {
 		return p.VarDeclaration()
 	}
 	return p.Statement()
+}
+
+// FunDeclaration -> "fun" IDENTIFIER "(" Parameters? ")" Block ;
+func (p *Parser[R]) FunDeclaration(kind string) (_ Stmt[R], err error) {
+	if !p.Match(Identifier) {
+		return nil, p.Error(p.Peek(), "expect "+kind+" name")
+	}
+	name := p.Previous()
+	if !p.Match(LeftParen) {
+		return nil, p.Error(p.Peek(), "expect '(' after function name")
+	}
+	var parameters []Token
+	if !p.Check(RightParen) {
+		parameters, err = p.Parameters()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !p.Match(RightParen) {
+		return nil, p.Error(p.Peek(), "expect ')' after parameters")
+	}
+	if !p.Match(LeftBrace) {
+		return nil, p.Error(p.Peek(), "expect '{' before "+kind+" body")
+	}
+	body, err := p.Block()
+	if err != nil {
+		return nil, err
+	}
+	return &FunctionStmt[R]{
+		Name:   name,
+		Params: parameters,
+		Body:   body.Statements,
+	}, nil
+}
+
+// Parameters -> IDENTIFIER ( "," IDENTIFIER )* ;
+func (p *Parser[R]) Parameters() ([]Token, error) {
+	var parameters []Token
+	for {
+		if len(parameters) >= 255 {
+			return nil, p.Error(p.Peek(), "can't have more than 255 parameters")
+		}
+		if !p.Match(Identifier) {
+			return nil, p.Error(p.Peek(), "expect parameter name")
+		}
+		parameters = append(parameters, p.Previous())
+		if !p.Match(Comma) {
+			break
+		}
+	}
+	return parameters, nil
 }
 
 // VarDeclaration -> "var" IDENTIFIER ( "=" Expression )? ";" ;
@@ -245,7 +299,7 @@ func (p *Parser[R]) ExpressionStatement() (Stmt[R], error) {
 }
 
 // Block -> "{" Declaration* "}" ;
-func (p *Parser[R]) Block() (Stmt[R], error) {
+func (p *Parser[R]) Block() (*BlockStmt[R], error) {
 	var statements []Stmt[R]
 	for !p.Check(RightBrace) && !p.IsAtEnd() {
 		stmt, err := p.Declaration()

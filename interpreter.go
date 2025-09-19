@@ -154,8 +154,8 @@ func (i *Interpreter) VisitCallExpr(expr *CallExpr[any]) (any, error) {
 	if !ok {
 		return nil, Error(expr.Paren.Line, fmt.Sprintf("value of type '%T' is not callable.", callee))
 	}
-	if len(arguments) != callable.Arity() {
-		return nil, Error(expr.Paren.Line, fmt.Sprintf("expected %d arguments but got %d.", callable.Arity(), len(arguments)))
+	if len(arguments) != callable.Arity {
+		return nil, Error(expr.Paren.Line, fmt.Sprintf("expected %d arguments but got %d.", callable.Arity, len(arguments)))
 	}
 	return callable.Call(i, arguments)
 }
@@ -241,6 +241,24 @@ var ErrContinue = errors.New("continue")
 
 func (i *Interpreter) VisitContinueStmt(*ContinueStmt[any]) error {
 	return ErrContinue
+}
+
+func (i *Interpreter) VisitFunctionStmt(stmt *FunctionStmt[any]) error {
+	name := "<fn " + stmt.Name.Lexeme + ">"
+	arity := len(stmt.Params)
+	body := func(i *Interpreter, args []any) (any, error) {
+		env := NewEnvironment(i.globals)
+		for idx, param := range stmt.Params {
+			env.Define(param.Lexeme, args[idx])
+		}
+		err := i.ExecuteBlock(stmt.Body, env)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+	i.globals.Define(stmt.Name.Lexeme, NewCallable(name, arity, body))
+	return nil
 }
 
 func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {
