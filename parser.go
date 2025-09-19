@@ -287,9 +287,9 @@ func (p *Parser[R]) Expression() (Expr[R], error) {
 	return p.Assignment()
 }
 
-// Assignment -> IDENTIFIER "=" Assignment | LogicalOr ;
+// Assignment -> IDENTIFIER "=" Assignment | Logical ;
 func (p *Parser[R]) Assignment() (Expr[R], error) {
-	expr, err := p.LogicalOr()
+	expr, err := p.Logical()
 	if err != nil {
 		return nil, err
 	}
@@ -307,34 +307,13 @@ func (p *Parser[R]) Assignment() (Expr[R], error) {
 	return expr, nil
 }
 
-// LogicalOr -> LogicalAnd ( "or" LogicalAnd )* ;
-func (p *Parser[R]) LogicalOr() (zero Expr[R], _ error) {
-	expr, err := p.LogicalAnd()
-	if err != nil {
-		return zero, err
-	}
-	for p.Match(Or) {
-		operator := p.Previous()
-		right, err := p.LogicalAnd()
-		if err != nil {
-			return zero, err
-		}
-		expr = &LogicalExpr[R]{
-			Left:     expr,
-			Operator: operator,
-			Right:    right,
-		}
-	}
-	return expr, nil
-}
-
-// LogicalAnd -> Equality ( "and" Equality )* ;
-func (p *Parser[R]) LogicalAnd() (zero Expr[R], _ error) {
+// Logical -> Equality ( ( "or" | "and" ) Equality )* ;
+func (p *Parser[R]) Logical() (zero Expr[R], _ error) {
 	expr, err := p.Equality()
 	if err != nil {
 		return zero, err
 	}
-	for p.Match(And) {
+	for p.Match(Or, And) {
 		operator := p.Previous()
 		right, err := p.Equality()
 		if err != nil {
