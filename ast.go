@@ -19,6 +19,7 @@ type ExprVisitor[R any] interface {
 	VisitVariableExpr(expr *VariableExpr[R]) (R, error)
 	VisitAssignExpr(expr *AssignExpr[R]) (R, error)
 	VisitLogicalExpr(expr *LogicalExpr[R]) (R, error)
+	VisitCallExpr(expr *CallExpr[R]) (R, error)
 }
 
 type BinaryExpr[R any] struct {
@@ -81,6 +82,16 @@ type LogicalExpr[R any] struct {
 
 func (l *LogicalExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
 	return visitor.VisitLogicalExpr(l)
+}
+
+type CallExpr[R any] struct {
+	Callee    Expr[R]
+	Paren     Token
+	Arguments []Expr[R]
+}
+
+func (c *CallExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+	return visitor.VisitCallExpr(c)
 }
 
 type Stmt[R any] interface {

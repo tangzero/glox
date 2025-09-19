@@ -412,7 +412,7 @@ func (p *Parser[R]) Factor() (zero Expr[R], _ error) {
 	return expr, nil
 }
 
-// Unary -> ( "!" | "-" ) Unary | Primary ;
+// Unary -> ( "!" | "-" ) Unary | Call ;
 func (p *Parser[R]) Unary() (zero Expr[R], _ error) {
 	if p.Match(Bang, Minus) {
 		operator := p.Previous()
@@ -425,7 +425,53 @@ func (p *Parser[R]) Unary() (zero Expr[R], _ error) {
 			Right:    right,
 		}, nil
 	}
-	return p.Primary()
+	return p.Call()
+}
+
+// Call -> Primary ( "(" Arguments? ")" )* ;
+func (p *Parser[R]) Call() (zero Expr[R], _ error) {
+	expr, err := p.Primary()
+	if err != nil {
+		return zero, err
+	}
+	for p.Match(LeftParen) {
+		var arguments []Expr[R]
+		if !p.Check(RightParen) {
+			arguments, err = p.Arguments()
+			if err != nil {
+				return zero, err
+			}
+		}
+		if !p.Match(RightParen) {
+			return zero, p.Error(p.Peek(), "expect ')' after arguments")
+		}
+		paren := p.Previous()
+		expr = &CallExpr[R]{
+			Callee:    expr,
+			Paren:     paren,
+			Arguments: arguments,
+		}
+	}
+	return expr, nil
+}
+
+// Arguments -> Expression ( "," Expression )* ;
+func (p *Parser[R]) Arguments() ([]Expr[R], error) {
+	var arguments []Expr[R]
+	for {
+		if len(arguments) >= 255 {
+			return nil, p.Error(p.Peek(), "can't have more than 255 arguments")
+		}
+		arg, err := p.Expression()
+		if err != nil {
+			return nil, err
+		}
+		arguments = append(arguments, arg)
+		if !p.Match(Comma) {
+			break
+		}
+	}
+	return arguments, nil
 }
 
 // Primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" Expression ")" | IDENTIFIER ;

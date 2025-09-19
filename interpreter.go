@@ -6,11 +6,11 @@ import (
 )
 
 type Interpreter struct {
-	env Env
+	globals Env
 }
 
-func NewInterpreter() *Interpreter {
-	return &Interpreter{env: NewEnvironment(nil)}
+func NewInterpreter(globals Env) *Interpreter {
+	return &Interpreter{globals}
 }
 
 func (i *Interpreter) VisitBinaryExpr(expr *BinaryExpr[any]) (any, error) {
@@ -107,7 +107,7 @@ func (i *Interpreter) VisitUnaryExpr(expr *UnaryExpr[any]) (any, error) {
 }
 
 func (i *Interpreter) VisitVariableExpr(expr *VariableExpr[any]) (any, error) {
-	return i.env.Get(expr.Name)
+	return i.globals.Get(expr.Name)
 }
 
 func (i *Interpreter) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
@@ -115,7 +115,7 @@ func (i *Interpreter) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value, i.env.Assign(expr.Name, value)
+	return value, i.globals.Assign(expr.Name, value)
 }
 
 func (i *Interpreter) VisitLogicalExpr(expr *LogicalExpr[any]) (any, error) {
@@ -135,6 +135,29 @@ func (i *Interpreter) VisitLogicalExpr(expr *LogicalExpr[any]) (any, error) {
 	}
 
 	return i.Evaluate(expr.Right)
+}
+
+func (i *Interpreter) VisitCallExpr(expr *CallExpr[any]) (any, error) {
+	callee, err := i.Evaluate(expr.Callee)
+	if err != nil {
+		return nil, err
+	}
+	var arguments []any
+	for _, arg := range expr.Arguments {
+		value, err := i.Evaluate(arg)
+		if err != nil {
+			return nil, err
+		}
+		arguments = append(arguments, value)
+	}
+	callable, ok := callee.(Callable)
+	if !ok {
+		return nil, Error(expr.Paren.Line, fmt.Sprintf("value of type '%T' is not callable.", callee))
+	}
+	if len(arguments) != callable.Arity() {
+		return nil, Error(expr.Paren.Line, fmt.Sprintf("expected %d arguments but got %d.", callable.Arity(), len(arguments)))
+	}
+	return callable.Call(i, arguments)
 }
 
 func (i *Interpreter) Evaluate(expr Expr[any]) (any, error) {
@@ -157,20 +180,19 @@ func (i *Interpreter) VisitPrintStmt(stmt *PrintStmt[any]) error {
 
 func (i *Interpreter) VisitVarDeclStmt(stmt *VarDeclStmt[any]) error {
 	if stmt.Initializer == nil {
-		i.env.Define(stmt.Name, nil)
+		i.globals.Define(stmt.Name.Lexeme, nil)
 		return nil
 	}
-
 	value, err := i.Evaluate(stmt.Initializer)
 	if err != nil {
 		return err
 	}
-	i.env.Define(stmt.Name, value)
+	i.globals.Define(stmt.Name.Lexeme, value)
 	return nil
 }
 
 func (i *Interpreter) VisitBlockStmt(stmt *BlockStmt[any]) error {
-	return i.ExecuteBlock(stmt.Statements, NewEnvironment(i.env))
+	return i.ExecuteBlock(stmt.Statements, NewEnvironment(i.globals))
 }
 
 func (i *Interpreter) VisitIfStmt(stmt *IfStmt[any]) error {
@@ -222,9 +244,9 @@ func (i *Interpreter) VisitContinueStmt(*ContinueStmt[any]) error {
 }
 
 func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {
-	previous := i.env
-	i.env = env
-	defer func() { i.env = previous }()
+	previous := i.globals
+	i.globals = env
+	defer func() { i.globals = previous }()
 	for _, stmt := range statements {
 		if err := i.Execute(stmt); err != nil {
 			return err

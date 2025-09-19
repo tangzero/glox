@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
 )
 
 func RunFile(path string) error {
@@ -17,11 +18,11 @@ func RunFile(path string) error {
 	if err != nil {
 		return err
 	}
-	return NewInterpreter().Interpret(program)
+	return NewInterpreter(DefaultGlobals()).Interpret(program)
 }
 
 func RunPrompt() error {
-	interpreter := NewInterpreter()
+	interpreter := NewInterpreter(DefaultGlobals())
 	fmt.Println("Glox REPL. Press Ctrl+C to exit.")
 	prompt := "> "
 	scanner := bufio.NewScanner(os.Stdin)
@@ -55,4 +56,18 @@ func Parse[R any](source string) (Program[R], error) {
 		return nil, err
 	}
 	return NewParser[R](tokens).Parse()
+}
+
+func DefaultGlobals() Env {
+	env := NewEnvironment(nil)
+
+	// add native functions here
+	env.Define("clock", NewCallable(
+		func() int { return 0 },
+		func(*Interpreter, []any) (any, error) {
+			return float64(time.Now().UnixMilli()), nil
+		},
+	))
+
+	return env
 }

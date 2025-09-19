@@ -3,7 +3,7 @@ package glox
 import "fmt"
 
 type Env interface {
-	Define(name Token, value any)
+	Define(name string, value any)
 	Assign(name Token, value any) error
 	Get(name Token) (any, error)
 }
@@ -20,8 +20,8 @@ func NewEnvironment(enclosing Env) *Environment {
 	}
 }
 
-func (e Environment) Define(name Token, value any) {
-	e.values[name.Lexeme] = value
+func (e Environment) Define(name string, value any) {
+	e.values[name] = value
 }
 
 func (e Environment) Assign(name Token, value any) error {
