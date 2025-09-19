@@ -5,7 +5,7 @@ import "slices"
 type Parser[R any] struct {
 	Tokens     []Token
 	Current    int
-	InsideLoop bool
+	LoopScopes int
 }
 
 func NewParser[R any](tokens []Token) *Parser[R] {
@@ -133,12 +133,12 @@ func (p *Parser[R]) WhileStatement() (Stmt[R], error) {
 		return nil, p.Error(p.Peek(), "expect ')' after condition")
 	}
 
-	p.InsideLoop = true
+	p.LoopScopes++
 	body, err := p.Statement()
 	if err != nil {
 		return nil, err
 	}
-	p.InsideLoop = false
+	p.LoopScopes--
 
 	return &WhileStmt[R]{
 		Condition: condition,
@@ -186,12 +186,12 @@ func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
 		return nil, p.Error(p.Peek(), "expect ')' after for clauses")
 	}
 
-	p.InsideLoop = true
+	p.LoopScopes++
 	body, err := p.Statement()
 	if err != nil {
 		return nil, err
 	}
-	p.InsideLoop = false
+	p.LoopScopes--
 
 	// desugar for loop into while loop
 	if increment != nil {
@@ -262,7 +262,7 @@ func (p *Parser[R]) Block() (Stmt[R], error) {
 
 // BreakStatement -> "break" ";" ;
 func (p *Parser[R]) BreakStatement() (Stmt[R], error) {
-	if !p.InsideLoop {
+	if p.LoopScopes == 0 {
 		return nil, p.Error(p.Previous(), "unexpected 'break' outside a loop")
 	}
 	if !p.Match(Semicolon) {
@@ -273,7 +273,7 @@ func (p *Parser[R]) BreakStatement() (Stmt[R], error) {
 
 // ContinueStatement -> "continue" ";" ;
 func (p *Parser[R]) ContinueStatement() (Stmt[R], error) {
-	if !p.InsideLoop {
+	if p.LoopScopes == 0 {
 		return nil, p.Error(p.Previous(), "unexpected 'continue' outside a loop")
 	}
 	if !p.Match(Semicolon) {
