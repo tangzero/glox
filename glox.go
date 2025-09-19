@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -78,6 +79,16 @@ func DefaultGlobals() Env {
 				return nil, fmt.Errorf("error reading input: %v", err)
 			}
 			return "", nil
+		},
+	))
+	env.Define("number", NewCallable("<native number>", 1,
+		func(i *Interpreter, args []any) (any, error) {
+			arg := fmt.Sprintf("%v", args[0])
+			number, err := strconv.ParseFloat(arg, 64)
+			if err != nil {
+				return nil, Error(0, fmt.Sprintf("could not convert '%s' to number", arg))
+			}
+			return number, nil
 		},
 	))
 
