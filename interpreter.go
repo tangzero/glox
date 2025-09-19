@@ -160,6 +160,26 @@ func (i *Interpreter) VisitCallExpr(expr *CallExpr[any]) (any, error) {
 	return callable.Call(i, arguments)
 }
 
+func (i *Interpreter) VisitLambdaExpr(expr *LambdaExpr[any]) (any, error) {
+	name := "<lambda>"
+	arity := len(expr.Params)
+	body := func(i *Interpreter, args []any) (any, error) {
+		env := NewEnvironment(i.globals)
+		for idx, param := range expr.Params {
+			env.Define(param.Lexeme, args[idx])
+		}
+		err := i.ExecuteBlock(expr.Body, env)
+		if err != nil {
+			if ret, ok := err.(*ReturnValue); ok {
+				return ret.Value, nil
+			}
+			return nil, err
+		}
+		return nil, nil
+	}
+	return NewCallable(name, arity, body), nil
+}
+
 func (i *Interpreter) Evaluate(expr Expr[any]) (any, error) {
 	return expr.Accept(i)
 }

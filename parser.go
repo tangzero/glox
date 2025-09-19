@@ -367,9 +367,9 @@ func (p *Parser[R]) Expression() (Expr[R], error) {
 	return p.Assignment()
 }
 
-// Assignment -> IDENTIFIER "=" Assignment | Logical ;
+// Assignment -> IDENTIFIER "=" Assignment | Lambda ;
 func (p *Parser[R]) Assignment() (Expr[R], error) {
-	expr, err := p.Logical()
+	expr, err := p.Lambda()
 	if err != nil {
 		return nil, err
 	}
@@ -385,6 +385,39 @@ func (p *Parser[R]) Assignment() (Expr[R], error) {
 		return nil, p.Error(equals, "invalid assignment target")
 	}
 	return expr, nil
+}
+
+// Lambda -> "fun" "(" Parameters? ")" Block | Logical ;
+func (p *Parser[R]) Lambda() (_ Expr[R], err error) {
+	if p.Match(Fun) {
+		if !p.Match(LeftParen) {
+			return nil, p.Error(p.Peek(), "expect '(' after 'fun'")
+		}
+		var parameters []Token
+		if !p.Check(RightParen) {
+			parameters, err = p.Parameters()
+			if err != nil {
+				return nil, err
+			}
+		}
+		if !p.Match(RightParen) {
+			return nil, p.Error(p.Peek(), "expect ')' after parameters")
+		}
+		if !p.Match(LeftBrace) {
+			return nil, p.Error(p.Peek(), "expect '{' before function body")
+		}
+		p.CallableDepth++
+		body, err := p.Block()
+		if err != nil {
+			return nil, err
+		}
+		p.CallableDepth--
+		return &LambdaExpr[R]{
+			Params: parameters,
+			Body:   body.Statements,
+		}, nil
+	}
+	return p.Logical()
 }
 
 // Logical -> Equality ( ( "or" | "and" ) Equality )* ;
