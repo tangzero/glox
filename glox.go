@@ -91,6 +91,11 @@ func DefaultGlobals() Env {
 			return number, nil
 		},
 	))
+	env.Define("string", NewCallable("<native string>", 1,
+		func(i *Interpreter, args []any) (any, error) {
+			return fmt.Sprintf("%v", args[0]), nil
+		},
+	))
 
 	return env
 }

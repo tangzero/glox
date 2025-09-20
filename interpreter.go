@@ -161,10 +161,11 @@ func (i *Interpreter) VisitCallExpr(expr *CallExpr[any]) (any, error) {
 }
 
 func (i *Interpreter) VisitLambdaExpr(expr *LambdaExpr[any]) (any, error) {
+	captured := i.globals
 	name := "<lambda>"
 	arity := len(expr.Params)
 	body := func(i *Interpreter, args []any) (any, error) {
-		env := NewEnvironment(i.globals)
+		env := NewEnvironment(captured)
 		for idx, param := range expr.Params {
 			env.Define(param.Lexeme, args[idx])
 		}
@@ -283,10 +284,11 @@ func (i *Interpreter) VisitReturnStmt(stmt *ReturnStmt[any]) (err error) {
 }
 
 func (i *Interpreter) VisitFunctionStmt(stmt *FunctionStmt[any]) error {
+	captured := i.globals
 	name := "<fn " + stmt.Name.Lexeme + ">"
 	arity := len(stmt.Params)
 	body := func(i *Interpreter, args []any) (any, error) {
-		env := NewEnvironment(i.globals)
+		env := NewEnvironment(captured)
 		for idx, param := range stmt.Params {
 			env.Define(param.Lexeme, args[idx])
 		}
