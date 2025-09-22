@@ -1,21 +1,61 @@
 package glox
 
-type Call = func(interpreter *Interpreter, arguments []any) (any, error)
-
-type Callable struct {
-	Name  string
-	Arity int
-	Call  Call
+type Callable interface {
+	Arity() int
+	Call(interpreter *Interpreter, arguments []any) (any, error)
 }
 
-func NewCallable(name string, arity int, call Call) Callable {
-	return Callable{
-		Name:  name,
-		Arity: arity,
-		Call:  call,
+type Function struct {
+	stmt *FunctionStmt[any]
+}
+
+func NewFunction(stmt *FunctionStmt[any]) Callable {
+	return &Function{stmt: stmt}
+}
+
+func (f *Function) Arity() int {
+	return len(f.stmt.Params)
+}
+
+func (f *Function) String() string {
+	return "<fn " + f.stmt.Name.Lexeme + ">"
+}
+
+func (f *Function) Call(interpreter *Interpreter, arguments []any) (any, error) {
+	env := NewEnvironment(interpreter.Env)
+	for i, param := range f.stmt.Params {
+		env.Define(param.Lexeme, arguments[i])
 	}
+
+	if err := interpreter.ExecuteBlock(f.stmt.Body, env); err != nil {
+		if returnValue, ok := err.(*ReturnValue); ok {
+			return returnValue.Value, nil
+		}
+		return nil, err
+	}
+	return nil, nil
 }
 
-func (c Callable) String() string {
-	return c.Name
+type NativeFunctionHandler func(*Interpreter, []any) (any, error)
+
+type NativeFunction struct {
+	name    string
+	arity   int
+	handler NativeFunctionHandler
+}
+
+func NewNativeFunction(name string, arity int, handler NativeFunctionHandler) Callable {
+	return &NativeFunction{name, arity, handler}
+}
+
+func (n *NativeFunction) Arity() int {
+	return n.arity
+}
+
+func (n *NativeFunction) String() string {
+	return "<native fn " + n.name + ">"
+}
+
+func (n *NativeFunction) Call(interpreter *Interpreter, arguments []any) (any, error) {
+	return n.handler(interpreter, arguments)
 }
