@@ -62,12 +62,12 @@ func DefaultGlobals() Env {
 	env := NewEnvironment(nil)
 
 	// add native functions here
-	env.Define("clock", NewNativeFunction("<native clock>", 0,
+	env.Define("clock", NewNativeFunction("clock", 0,
 		func(*Interpreter, []any) (any, error) {
 			return float64(time.Now().UnixMilli()), nil
 		},
 	))
-	env.Define("prompt", NewNativeFunction("<native prompt>", 1,
+	env.Define("prompt", NewNativeFunction("prompt", 1,
 		func(i *Interpreter, args []any) (any, error) {
 			fmt.Println(args[0])
 			scanner := bufio.NewScanner(os.Stdin)
