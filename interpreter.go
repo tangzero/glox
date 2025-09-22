@@ -263,7 +263,7 @@ func (i *Interpreter) VisitReturnStmt(stmt *ReturnStmt[any]) (err error) {
 }
 
 func (i *Interpreter) VisitFunctionStmt(stmt *FunctionStmt[any]) error {
-	i.Env.Define(stmt.Name.Lexeme, NewFunction(stmt))
+	i.Env.Define(stmt.Name.Lexeme, NewFunction(i.Env, stmt))
 	return nil
 }
 

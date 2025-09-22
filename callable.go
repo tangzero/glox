@@ -6,11 +6,12 @@ type Callable interface {
 }
 
 type Function struct {
-	stmt *FunctionStmt[any]
+	closure Env
+	stmt    *FunctionStmt[any]
 }
 
-func NewFunction(stmt *FunctionStmt[any]) Callable {
-	return &Function{stmt: stmt}
+func NewFunction(closure Env, stmt *FunctionStmt[any]) Callable {
+	return &Function{closure, stmt}
 }
 
 func (f *Function) Arity() int {
@@ -22,7 +23,7 @@ func (f *Function) String() string {
 }
 
 func (f *Function) Call(interpreter *Interpreter, arguments []any) (any, error) {
-	env := NewEnvironment(interpreter.Env)
+	env := NewEnvironment(f.closure)
 	for i, param := range f.stmt.Params {
 		env.Define(param.Lexeme, arguments[i])
 	}
