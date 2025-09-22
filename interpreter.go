@@ -160,6 +160,10 @@ func (i *Interpreter) VisitCallExpr(expr *CallExpr[any]) (any, error) {
 	return callable.Call(i, arguments)
 }
 
+func (i *Interpreter) VisitLambdaExpr(expr *LambdaExpr[any]) (any, error) {
+	return NewLambda(i.Env, expr), nil
+}
+
 func (i *Interpreter) Evaluate(expr Expr[any]) (any, error) {
 	return expr.Accept(i)
 }

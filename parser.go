@@ -367,7 +367,7 @@ func (p *Parser[R]) Expression() (Expr[R], error) {
 	return p.Assignment()
 }
 
-// Assignment -> IDENTIFIER "=" Assignment | Logical ;
+// Assignment -> IDENTIFIER "=" Assignment | Lambda ;
 func (p *Parser[R]) Assignment() (Expr[R], error) {
 	expr, err := p.Logical()
 	if err != nil {
@@ -554,8 +554,11 @@ func (p *Parser[R]) Arguments() ([]Expr[R], error) {
 	return arguments, nil
 }
 
-// Primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" Expression ")" | IDENTIFIER ;
+// Primary -> Lambda | NUMBER | STRING | "true" | "false" | "nil" | "(" Expression ")" | IDENTIFIER ;
 func (p *Parser[R]) Primary() (zero Expr[R], _ error) {
+	if p.Match(Fun) {
+		return p.Lambda()
+	}
 	if p.Match(False) {
 		return &LiteralExpr[R]{Value: false}, nil
 	}
@@ -582,6 +585,36 @@ func (p *Parser[R]) Primary() (zero Expr[R], _ error) {
 		return &GroupingExpr[R]{Expression: expr}, nil
 	}
 	return zero, p.Error(p.Peek(), "expect expression")
+}
+
+// Lambda -> "fun" "(" Parameters? ")" Block ;
+func (p *Parser[R]) Lambda() (_ Expr[R], err error) {
+	if !p.Match(LeftParen) {
+		return nil, p.Error(p.Peek(), "expect '(' after 'fun'")
+	}
+	var parameters []Token
+	if !p.Check(RightParen) {
+		parameters, err = p.Parameters()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !p.Match(RightParen) {
+		return nil, p.Error(p.Peek(), "expect ')' after parameters")
+	}
+	if !p.Match(LeftBrace) {
+		return nil, p.Error(p.Peek(), "expect '{' before function body")
+	}
+	p.CallableDepth++
+	body, err := p.Block()
+	if err != nil {
+		return nil, err
+	}
+	p.CallableDepth--
+	return &LambdaExpr[R]{
+		Params: parameters,
+		Body:   body.Statements,
+	}, nil
 }
 
 func (p *Parser[R]) Check(t TokenType) bool {
