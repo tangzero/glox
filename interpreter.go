@@ -5,12 +5,20 @@ import (
 	"fmt"
 )
 
+var _ Visitor[any] = (*Interpreter)(nil)
+
 type Interpreter struct {
-	Env Env
+	Env     Env
+	Globals Env
+	Locals  map[Expr[any]]int
 }
 
 func NewInterpreter(globals Env) *Interpreter {
-	return &Interpreter{globals}
+	return &Interpreter{
+		Env:     globals,
+		Globals: globals,
+		Locals:  make(map[Expr[any]]int),
+	}
 }
 
 func (i *Interpreter) VisitBinaryExpr(expr *BinaryExpr[any]) (any, error) {
@@ -107,7 +115,7 @@ func (i *Interpreter) VisitUnaryExpr(expr *UnaryExpr[any]) (any, error) {
 }
 
 func (i *Interpreter) VisitVariableExpr(expr *VariableExpr[any]) (any, error) {
-	return i.Env.Get(expr.Name)
+	return i.LookupVariable(expr.Name, expr)
 }
 
 func (i *Interpreter) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
@@ -115,7 +123,11 @@ func (i *Interpreter) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value, i.Env.Assign(expr.Name, value)
+	depth, ok := i.Locals[expr]
+	if ok {
+		return value, i.Env.AssignAt(depth, expr.Name, value)
+	}
+	return value, i.Globals.Assign(expr.Name, value)
 }
 
 func (i *Interpreter) VisitLogicalExpr(expr *LogicalExpr[any]) (any, error) {
@@ -294,6 +306,18 @@ func (i *Interpreter) Interpret(program Program[any]) error {
 		}
 	}
 	return nil
+}
+
+func (i *Interpreter) Resolve(expr Expr[any], depth int) error {
+	i.Locals[expr] = depth
+	return nil
+}
+
+func (i *Interpreter) LookupVariable(name Token, expr Expr[any]) (any, error) {
+	if depth, ok := i.Locals[expr]; ok {
+		return i.Env.GetAt(depth, name.Lexeme)
+	}
+	return i.Globals.Get(name)
 }
 
 func isTruthy(value any) bool {

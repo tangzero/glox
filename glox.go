@@ -18,11 +18,20 @@ func RunFile(path string) error {
 	if err != nil {
 		return err
 	}
-	return NewInterpreter(DefaultGlobals()).Interpret(program)
+
+	interpreter := NewInterpreter(DefaultGlobals())
+	resolver := NewResolver(interpreter)
+
+	if err := resolver.Resolve(program); err != nil {
+		return fmt.Errorf("resolution error: %v", err)
+	}
+	return interpreter.Interpret(program)
 }
 
 func RunPrompt() error {
 	interpreter := NewInterpreter(DefaultGlobals())
+	resolver := NewResolver(interpreter)
+
 	fmt.Println("Glox REPL. Press Ctrl+C to exit.")
 	prompt := "> "
 	scanner := bufio.NewScanner(os.Stdin)
@@ -30,6 +39,11 @@ func RunPrompt() error {
 	for fmt.Print(prompt); scanner.Scan(); fmt.Print(prompt) {
 		program, err := Parse[any](scanner.Text())
 		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		if err := resolver.Resolve(program); err != nil {
 			fmt.Println(err)
 			continue
 		}
