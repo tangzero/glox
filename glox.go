@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -95,5 +96,16 @@ func DefaultGlobals() Env {
 		},
 	))
 
+	// to convert between types
+	env.Define("number", NewNativeFunction("number", 1,
+		func(_ *Interpreter, args []any) (any, error) {
+			return strconv.ParseFloat(args[0].(string), 64)
+		},
+	))
+	env.Define("string", NewNativeFunction("string", 1,
+		func(_ *Interpreter, args []any) (any, error) {
+			return fmt.Sprintf("%v", args[0]), nil
+		},
+	))
 	return env
 }
