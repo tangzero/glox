@@ -5,23 +5,23 @@ import (
 	"fmt"
 )
 
-var _ Visitor[any] = (*Interpreter)(nil)
+var _ Visitor = (*Interpreter)(nil)
 
 type Interpreter struct {
 	Env     Env
 	Globals Env
-	Locals  map[Expr[any]]int
+	Locals  map[Expr]int
 }
 
 func NewInterpreter(globals Env) *Interpreter {
 	return &Interpreter{
 		Env:     globals,
 		Globals: globals,
-		Locals:  make(map[Expr[any]]int),
+		Locals:  make(map[Expr]int),
 	}
 }
 
-func (i *Interpreter) VisitBinaryExpr(expr *BinaryExpr[any]) (any, error) {
+func (i *Interpreter) VisitBinaryExpr(expr *BinaryExpr) (any, error) {
 	left, err := i.Evaluate(expr.Left)
 	if err != nil {
 		return nil, err
@@ -87,15 +87,15 @@ func (i *Interpreter) VisitBinaryExpr(expr *BinaryExpr[any]) (any, error) {
 	}
 }
 
-func (i *Interpreter) VisitGroupingExpr(expr *GroupingExpr[any]) (any, error) {
+func (i *Interpreter) VisitGroupingExpr(expr *GroupingExpr) (any, error) {
 	return i.Evaluate(expr.Expression)
 }
 
-func (i *Interpreter) VisitLiteralExpr(expr *LiteralExpr[any]) (any, error) {
+func (i *Interpreter) VisitLiteralExpr(expr *LiteralExpr) (any, error) {
 	return expr.Value, nil
 }
 
-func (i *Interpreter) VisitUnaryExpr(expr *UnaryExpr[any]) (any, error) {
+func (i *Interpreter) VisitUnaryExpr(expr *UnaryExpr) (any, error) {
 	right, err := i.Evaluate(expr.Right)
 	if err != nil {
 		return nil, err
@@ -114,11 +114,11 @@ func (i *Interpreter) VisitUnaryExpr(expr *UnaryExpr[any]) (any, error) {
 	}
 }
 
-func (i *Interpreter) VisitVariableExpr(expr *VariableExpr[any]) (any, error) {
+func (i *Interpreter) VisitVariableExpr(expr *VariableExpr) (any, error) {
 	return i.LookupVariable(expr.Name, expr)
 }
 
-func (i *Interpreter) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
+func (i *Interpreter) VisitAssignExpr(expr *AssignExpr) (any, error) {
 	value, err := i.Evaluate(expr.Value)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (i *Interpreter) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
 	return value, i.Globals.Assign(expr.Name, value)
 }
 
-func (i *Interpreter) VisitLogicalExpr(expr *LogicalExpr[any]) (any, error) {
+func (i *Interpreter) VisitLogicalExpr(expr *LogicalExpr) (any, error) {
 	left, err := i.Evaluate(expr.Left)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (i *Interpreter) VisitLogicalExpr(expr *LogicalExpr[any]) (any, error) {
 	return i.Evaluate(expr.Right)
 }
 
-func (i *Interpreter) VisitCallExpr(expr *CallExpr[any]) (any, error) {
+func (i *Interpreter) VisitCallExpr(expr *CallExpr) (any, error) {
 	callee, err := i.Evaluate(expr.Callee)
 	if err != nil {
 		return nil, err
@@ -172,20 +172,20 @@ func (i *Interpreter) VisitCallExpr(expr *CallExpr[any]) (any, error) {
 	return callable.Call(i, arguments)
 }
 
-func (i *Interpreter) VisitLambdaExpr(expr *LambdaExpr[any]) (any, error) {
+func (i *Interpreter) VisitLambdaExpr(expr *LambdaExpr) (any, error) {
 	return NewLambda(i.Env, expr), nil
 }
 
-func (i *Interpreter) Evaluate(expr Expr[any]) (any, error) {
+func (i *Interpreter) Evaluate(expr Expr) (any, error) {
 	return expr.Accept(i)
 }
 
-func (i *Interpreter) VisitExpressionStmt(stmt *ExpressionStmt[any]) error {
+func (i *Interpreter) VisitExpressionStmt(stmt *ExpressionStmt) error {
 	_, err := i.Evaluate(stmt.Expr)
 	return err
 }
 
-func (i *Interpreter) VisitPrintStmt(stmt *PrintStmt[any]) error {
+func (i *Interpreter) VisitPrintStmt(stmt *PrintStmt) error {
 	value, err := i.Evaluate(stmt.Expr)
 	if err != nil {
 		return err
@@ -194,7 +194,7 @@ func (i *Interpreter) VisitPrintStmt(stmt *PrintStmt[any]) error {
 	return nil
 }
 
-func (i *Interpreter) VisitVarDeclStmt(stmt *VarDeclStmt[any]) error {
+func (i *Interpreter) VisitVarDeclStmt(stmt *VarDeclStmt) error {
 	if stmt.Initializer == nil {
 		i.Env.Define(stmt.Name.Lexeme, nil)
 		return nil
@@ -207,11 +207,11 @@ func (i *Interpreter) VisitVarDeclStmt(stmt *VarDeclStmt[any]) error {
 	return nil
 }
 
-func (i *Interpreter) VisitBlockStmt(stmt *BlockStmt[any]) error {
+func (i *Interpreter) VisitBlockStmt(stmt *BlockStmt) error {
 	return i.ExecuteBlock(stmt.Statements, NewEnvironment(i.Env))
 }
 
-func (i *Interpreter) VisitIfStmt(stmt *IfStmt[any]) error {
+func (i *Interpreter) VisitIfStmt(stmt *IfStmt) error {
 	condition, err := i.Evaluate(stmt.Condition)
 	if err != nil {
 		return err
@@ -225,7 +225,7 @@ func (i *Interpreter) VisitIfStmt(stmt *IfStmt[any]) error {
 	return nil
 }
 
-func (i *Interpreter) VisitWhileStmt(stmt *WhileStmt[any]) error {
+func (i *Interpreter) VisitWhileStmt(stmt *WhileStmt) error {
 	for {
 		condition, err := i.Evaluate(stmt.Condition)
 		if err != nil {
@@ -249,13 +249,13 @@ func (i *Interpreter) VisitWhileStmt(stmt *WhileStmt[any]) error {
 
 var ErrBreak = errors.New("break")
 
-func (i *Interpreter) VisitBreakStmt(*BreakStmt[any]) error {
+func (i *Interpreter) VisitBreakStmt(*BreakStmt) error {
 	return ErrBreak
 }
 
 var ErrContinue = errors.New("continue")
 
-func (i *Interpreter) VisitContinueStmt(*ContinueStmt[any]) error {
+func (i *Interpreter) VisitContinueStmt(*ContinueStmt) error {
 	return ErrContinue
 }
 
@@ -267,7 +267,7 @@ func (r *ReturnValue) Error() string {
 	return "return"
 }
 
-func (i *Interpreter) VisitReturnStmt(stmt *ReturnStmt[any]) (err error) {
+func (i *Interpreter) VisitReturnStmt(stmt *ReturnStmt) (err error) {
 	var value any
 	if stmt.Value != nil {
 		value, err = i.Evaluate(stmt.Value)
@@ -278,12 +278,12 @@ func (i *Interpreter) VisitReturnStmt(stmt *ReturnStmt[any]) (err error) {
 	return &ReturnValue{value}
 }
 
-func (i *Interpreter) VisitFunctionStmt(stmt *FunctionStmt[any]) error {
+func (i *Interpreter) VisitFunctionStmt(stmt *FunctionStmt) error {
 	i.Env.Define(stmt.Name.Lexeme, NewFunction(i.Env, stmt))
 	return nil
 }
 
-func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {
+func (i *Interpreter) ExecuteBlock(statements []Stmt, env Env) error {
 	previous := i.Env
 	i.Env = env
 	defer func() { i.Env = previous }()
@@ -295,11 +295,11 @@ func (i *Interpreter) ExecuteBlock(statements []Stmt[any], env Env) error {
 	return nil
 }
 
-func (i *Interpreter) Execute(stmt Stmt[any]) error {
+func (i *Interpreter) Execute(stmt Stmt) error {
 	return stmt.Accept(i)
 }
 
-func (i *Interpreter) Interpret(program Program[any]) error {
+func (i *Interpreter) Interpret(program Program) error {
 	for _, stmt := range program {
 		if err := i.Execute(stmt); err != nil {
 			return err
@@ -308,12 +308,12 @@ func (i *Interpreter) Interpret(program Program[any]) error {
 	return nil
 }
 
-func (i *Interpreter) Resolve(expr Expr[any], depth int) error {
+func (i *Interpreter) Resolve(expr Expr, depth int) error {
 	i.Locals[expr] = depth
 	return nil
 }
 
-func (i *Interpreter) LookupVariable(name Token, expr Expr[any]) (any, error) {
+func (i *Interpreter) LookupVariable(name Token, expr Expr) (any, error) {
 	if depth, ok := i.Locals[expr]; ok {
 		return i.Env.GetAt(depth, name.Lexeme)
 	}

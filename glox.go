@@ -15,7 +15,7 @@ func RunFile(path string) error {
 	if err != nil {
 		return fmt.Errorf("could not read file: %v", err)
 	}
-	program, err := Parse[any](string(bytes))
+	program, err := Parse(string(bytes))
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func RunPrompt() error {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for fmt.Print(prompt); scanner.Scan(); fmt.Print(prompt) {
-		program, err := Parse[any](scanner.Text())
+		program, err := Parse(scanner.Text())
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -50,8 +50,8 @@ func RunPrompt() error {
 		}
 
 		// if the input is a single expression, wrap it in a print statement.
-		if expr, ok := program[0].(*ExpressionStmt[any]); ok && len(program) == 1 {
-			program = Program[any]{&PrintStmt[any]{Expr: expr.Expr}}
+		if expr, ok := program[0].(*ExpressionStmt); ok && len(program) == 1 {
+			program = Program{&PrintStmt{Expr: expr.Expr}}
 		}
 
 		if err := interpreter.Interpret(program); err != nil {
@@ -64,13 +64,13 @@ func RunPrompt() error {
 	return nil
 }
 
-func Parse[R any](source string) (Program[R], error) {
+func Parse(source string) (Program, error) {
 	scanner := NewScanner(source)
 	tokens, err := scanner.ScanTokens()
 	if err != nil {
 		return nil, err
 	}
-	return NewParser[R](tokens).Parse()
+	return NewParser(tokens).Parse()
 }
 
 func DefaultGlobals() Env {

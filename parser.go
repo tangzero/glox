@@ -2,24 +2,24 @@ package glox
 
 import "slices"
 
-type Parser[R any] struct {
+type Parser struct {
 	Tokens        []Token
 	Current       int
 	LoopDepth     int
 	CallableDepth int
 }
 
-func NewParser[R any](tokens []Token) *Parser[R] {
-	return &Parser[R]{Tokens: tokens}
+func NewParser(tokens []Token) *Parser {
+	return &Parser{Tokens: tokens}
 }
 
-func (p *Parser[R]) Parse() (Program[R], error) {
+func (p *Parser) Parse() (Program, error) {
 	return p.Program()
 }
 
 // Program -> Declaration* EOF ;
-func (p *Parser[R]) Program() (Program[R], error) {
-	var program Program[R]
+func (p *Parser) Program() (Program, error) {
+	var program Program
 	for !p.IsAtEnd() {
 		stmt, err := p.Declaration()
 		if err != nil {
@@ -31,7 +31,7 @@ func (p *Parser[R]) Program() (Program[R], error) {
 }
 
 // Declaration -> FunDeclaration | VarDeclaration | Statement ;
-func (p *Parser[R]) Declaration() (Stmt[R], error) {
+func (p *Parser) Declaration() (Stmt, error) {
 	if p.Match(Fun) {
 		return p.FunDeclaration("function")
 	}
@@ -42,7 +42,7 @@ func (p *Parser[R]) Declaration() (Stmt[R], error) {
 }
 
 // FunDeclaration -> "fun" IDENTIFIER "(" Parameters? ")" Block ;
-func (p *Parser[R]) FunDeclaration(kind string) (_ Stmt[R], err error) {
+func (p *Parser) FunDeclaration(kind string) (_ Stmt, err error) {
 	if !p.Match(Identifier) {
 		return nil, p.Error(p.Peek(), "expect "+kind+" name")
 	}
@@ -69,7 +69,7 @@ func (p *Parser[R]) FunDeclaration(kind string) (_ Stmt[R], err error) {
 		return nil, err
 	}
 	p.CallableDepth--
-	return &FunctionStmt[R]{
+	return &FunctionStmt{
 		Name:   name,
 		Params: parameters,
 		Body:   body.Statements,
@@ -77,7 +77,7 @@ func (p *Parser[R]) FunDeclaration(kind string) (_ Stmt[R], err error) {
 }
 
 // Parameters -> IDENTIFIER ( "," IDENTIFIER )* ;
-func (p *Parser[R]) Parameters() ([]Token, error) {
+func (p *Parser) Parameters() ([]Token, error) {
 	var parameters []Token
 	for {
 		if len(parameters) >= 255 {
@@ -95,12 +95,12 @@ func (p *Parser[R]) Parameters() ([]Token, error) {
 }
 
 // VarDeclaration -> "var" IDENTIFIER ( "=" Expression )? ";" ;
-func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
+func (p *Parser) VarDeclaration() (_ Stmt, err error) {
 	if !p.Match(Identifier) {
 		return nil, p.Error(p.Peek(), "expect variable name")
 	}
 	name := p.Previous()
-	var initializer Expr[R]
+	var initializer Expr
 	if p.Match(Equal) {
 		initializer, err = p.Expression()
 		if err != nil {
@@ -110,7 +110,7 @@ func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
 	if !p.Match(Semicolon) {
 		return nil, p.Error(p.Peek(), "expect ';' after variable declaration")
 	}
-	return &VarDeclStmt[R]{Name: name, Initializer: initializer}, nil
+	return &VarDeclStmt{Name: name, Initializer: initializer}, nil
 }
 
 // Statement -> IfStatement
@@ -123,7 +123,7 @@ func (p *Parser[R]) VarDeclaration() (_ Stmt[R], err error) {
 //	    | ContinueStatement
 //	    | ReturnStatement
 //			| ExpressionStatement ;
-func (p *Parser[R]) Statement() (Stmt[R], error) {
+func (p *Parser) Statement() (Stmt, error) {
 	if p.Match(If) {
 		return p.IfStatement()
 	}
@@ -152,7 +152,7 @@ func (p *Parser[R]) Statement() (Stmt[R], error) {
 }
 
 // IfStatement -> "if" "(" Expression ")" Statement ( "else" Statement )? ;
-func (p *Parser[R]) IfStatement() (Stmt[R], error) {
+func (p *Parser) IfStatement() (Stmt, error) {
 	if !p.Match(LeftParen) {
 		return nil, p.Error(p.Peek(), "expect '(' after 'if'")
 	}
@@ -167,14 +167,14 @@ func (p *Parser[R]) IfStatement() (Stmt[R], error) {
 	if err != nil {
 		return nil, err
 	}
-	var elseBranch Stmt[R]
+	var elseBranch Stmt
 	if p.Match(Else) {
 		elseBranch, err = p.Statement()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return &IfStmt[R]{
+	return &IfStmt{
 		Condition:  condition,
 		ThenBranch: thenBranch,
 		ElseBranch: elseBranch,
@@ -182,7 +182,7 @@ func (p *Parser[R]) IfStatement() (Stmt[R], error) {
 }
 
 // WhileStatement -> "while" "(" Expression ")" Statement ;
-func (p *Parser[R]) WhileStatement() (Stmt[R], error) {
+func (p *Parser) WhileStatement() (Stmt, error) {
 	if !p.Match(LeftParen) {
 		return nil, p.Error(p.Peek(), "expect '(' after 'while'")
 	}
@@ -201,18 +201,18 @@ func (p *Parser[R]) WhileStatement() (Stmt[R], error) {
 	}
 	p.LoopDepth--
 
-	return &WhileStmt[R]{
+	return &WhileStmt{
 		Condition: condition,
 		Body:      body,
 	}, nil
 }
 
 // ForStatement -> "for" "(" ( VarDeclaration | ExpressionStatement | ";" ) Expression? ";" Expression? ")" Statement ;
-func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
+func (p *Parser) ForStatement() (_ Stmt, err error) {
 	if !p.Match(LeftParen) {
 		return nil, p.Error(p.Peek(), "expect '(' after 'for'")
 	}
-	var initializer Stmt[R]
+	var initializer Stmt
 	if p.Match(Semicolon) {
 		initializer = nil // not needed, but explicit
 	} else if p.Match(Var) {
@@ -226,7 +226,7 @@ func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
 			return nil, err
 		}
 	}
-	var condition Expr[R] = &LiteralExpr[R]{Value: true} // default to true
+	var condition Expr = &LiteralExpr{Value: true} // default to true
 	if !p.Check(Semicolon) {
 		condition, err = p.Expression()
 		if err != nil {
@@ -236,7 +236,7 @@ func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
 	if !p.Match(Semicolon) {
 		return nil, p.Error(p.Peek(), "expect ';' after loop condition")
 	}
-	var increment Expr[R]
+	var increment Expr
 	if !p.Check(RightParen) {
 		increment, err = p.Expression()
 		if err != nil {
@@ -256,22 +256,22 @@ func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
 
 	// desugar for loop into while loop
 	if increment != nil {
-		body = &BlockStmt[R]{
-			Statements: []Stmt[R]{
+		body = &BlockStmt{
+			Statements: []Stmt{
 				body,
-				&ExpressionStmt[R]{Expr: increment},
+				&ExpressionStmt{Expr: increment},
 			},
 		}
 	}
 
-	body = &WhileStmt[R]{
+	body = &WhileStmt{
 		Condition: condition,
 		Body:      body,
 	}
 
 	if initializer != nil {
-		body = &BlockStmt[R]{
-			Statements: []Stmt[R]{
+		body = &BlockStmt{
+			Statements: []Stmt{
 				initializer,
 				body,
 			},
@@ -282,7 +282,7 @@ func (p *Parser[R]) ForStatement() (_ Stmt[R], err error) {
 }
 
 // PrintStatement -> "print" Expression ";" ;
-func (p *Parser[R]) PrintStatement() (Stmt[R], error) {
+func (p *Parser) PrintStatement() (Stmt, error) {
 	expr, err := p.Expression()
 	if err != nil {
 		return nil, err
@@ -290,16 +290,16 @@ func (p *Parser[R]) PrintStatement() (Stmt[R], error) {
 	if !p.Match(Semicolon) {
 		return nil, p.Error(p.Peek(), "expect ';' after value")
 	}
-	return &PrintStmt[R]{Expr: expr}, nil
+	return &PrintStmt{Expr: expr}, nil
 }
 
 // ReturnStatement -> "return" Expression? ";" ;
-func (p *Parser[R]) ReturnStatement() (_ Stmt[R], err error) {
+func (p *Parser) ReturnStatement() (_ Stmt, err error) {
 	if p.CallableDepth == 0 {
 		return nil, p.Error(p.Previous(), "unexpected 'return' outside a function/method")
 	}
 	keyword := p.Previous()
-	var value Expr[R]
+	var value Expr
 	if !p.Check(Semicolon) {
 		value, err = p.Expression()
 		if err != nil {
@@ -309,11 +309,11 @@ func (p *Parser[R]) ReturnStatement() (_ Stmt[R], err error) {
 	if !p.Match(Semicolon) {
 		return nil, p.Error(p.Peek(), "expect ';' after return value")
 	}
-	return &ReturnStmt[R]{Keyword: keyword, Value: value}, nil
+	return &ReturnStmt{Keyword: keyword, Value: value}, nil
 }
 
 // ExpressionStatement -> Expression ";" ;
-func (p *Parser[R]) ExpressionStatement() (Stmt[R], error) {
+func (p *Parser) ExpressionStatement() (Stmt, error) {
 	expr, err := p.Expression()
 	if err != nil {
 		return nil, err
@@ -321,12 +321,12 @@ func (p *Parser[R]) ExpressionStatement() (Stmt[R], error) {
 	if !p.Match(Semicolon) {
 		return nil, p.Error(p.Peek(), "expect ';' after expression")
 	}
-	return &ExpressionStmt[R]{Expr: expr}, nil
+	return &ExpressionStmt{Expr: expr}, nil
 }
 
 // Block -> "{" Declaration* "}" ;
-func (p *Parser[R]) Block() (*BlockStmt[R], error) {
-	var statements []Stmt[R]
+func (p *Parser) Block() (*BlockStmt, error) {
+	var statements []Stmt
 	for !p.Check(RightBrace) && !p.IsAtEnd() {
 		stmt, err := p.Declaration()
 		if err != nil {
@@ -337,38 +337,38 @@ func (p *Parser[R]) Block() (*BlockStmt[R], error) {
 	if !p.Match(RightBrace) {
 		return nil, p.Error(p.Peek(), "expect '}' after block")
 	}
-	return &BlockStmt[R]{Statements: statements}, nil
+	return &BlockStmt{Statements: statements}, nil
 }
 
 // BreakStatement -> "break" ";" ;
-func (p *Parser[R]) BreakStatement() (Stmt[R], error) {
+func (p *Parser) BreakStatement() (Stmt, error) {
 	if p.LoopDepth == 0 {
 		return nil, p.Error(p.Previous(), "unexpected 'break' outside a loop")
 	}
 	if !p.Match(Semicolon) {
 		return nil, p.Error(p.Peek(), "expect ';' after 'break'")
 	}
-	return &BreakStmt[R]{}, nil
+	return &BreakStmt{}, nil
 }
 
 // ContinueStatement -> "continue" ";" ;
-func (p *Parser[R]) ContinueStatement() (Stmt[R], error) {
+func (p *Parser) ContinueStatement() (Stmt, error) {
 	if p.LoopDepth == 0 {
 		return nil, p.Error(p.Previous(), "unexpected 'continue' outside a loop")
 	}
 	if !p.Match(Semicolon) {
 		return nil, p.Error(p.Peek(), "expect ';' after 'continue'")
 	}
-	return &ContinueStmt[R]{}, nil
+	return &ContinueStmt{}, nil
 }
 
 // Expression -> Assignment ;
-func (p *Parser[R]) Expression() (Expr[R], error) {
+func (p *Parser) Expression() (Expr, error) {
 	return p.Assignment()
 }
 
 // Assignment -> IDENTIFIER "=" Assignment | Lambda ;
-func (p *Parser[R]) Assignment() (Expr[R], error) {
+func (p *Parser) Assignment() (Expr, error) {
 	expr, err := p.Logical()
 	if err != nil {
 		return nil, err
@@ -379,8 +379,8 @@ func (p *Parser[R]) Assignment() (Expr[R], error) {
 		if err != nil {
 			return nil, err
 		}
-		if varExpr, ok := expr.(*VariableExpr[R]); ok {
-			return &AssignExpr[R]{Name: varExpr.Name, Value: value}, nil
+		if varExpr, ok := expr.(*VariableExpr); ok {
+			return &AssignExpr{Name: varExpr.Name, Value: value}, nil
 		}
 		return nil, p.Error(equals, "invalid assignment target")
 	}
@@ -388,7 +388,7 @@ func (p *Parser[R]) Assignment() (Expr[R], error) {
 }
 
 // Logical -> Equality ( ( "or" | "and" ) Equality )* ;
-func (p *Parser[R]) Logical() (zero Expr[R], _ error) {
+func (p *Parser) Logical() (zero Expr, _ error) {
 	expr, err := p.Equality()
 	if err != nil {
 		return zero, err
@@ -399,7 +399,7 @@ func (p *Parser[R]) Logical() (zero Expr[R], _ error) {
 		if err != nil {
 			return zero, err
 		}
-		expr = &LogicalExpr[R]{
+		expr = &LogicalExpr{
 			Left:     expr,
 			Operator: operator,
 			Right:    right,
@@ -409,7 +409,7 @@ func (p *Parser[R]) Logical() (zero Expr[R], _ error) {
 }
 
 // Equality -> Comparison ( ( "!=" | "==" ) Comparison )* ;
-func (p *Parser[R]) Equality() (zero Expr[R], _ error) {
+func (p *Parser) Equality() (zero Expr, _ error) {
 	expr, err := p.Comparison()
 	if err != nil {
 		return zero, err
@@ -420,7 +420,7 @@ func (p *Parser[R]) Equality() (zero Expr[R], _ error) {
 		if err != nil {
 			return zero, err
 		}
-		expr = &BinaryExpr[R]{
+		expr = &BinaryExpr{
 			Left:     expr,
 			Operator: operator,
 			Right:    right,
@@ -430,7 +430,7 @@ func (p *Parser[R]) Equality() (zero Expr[R], _ error) {
 }
 
 // Comparison -> Term ( ( ">" | ">=" | "<" | "<=" ) Term )* ;
-func (p *Parser[R]) Comparison() (zero Expr[R], _ error) {
+func (p *Parser) Comparison() (zero Expr, _ error) {
 	expr, err := p.Term()
 	if err != nil {
 		return zero, err
@@ -441,7 +441,7 @@ func (p *Parser[R]) Comparison() (zero Expr[R], _ error) {
 		if err != nil {
 			return zero, err
 		}
-		expr = &BinaryExpr[R]{
+		expr = &BinaryExpr{
 			Left:     expr,
 			Operator: operator,
 			Right:    right,
@@ -451,7 +451,7 @@ func (p *Parser[R]) Comparison() (zero Expr[R], _ error) {
 }
 
 // Term -> Factor ( ( "-" | "+" ) Factor )* ;
-func (p *Parser[R]) Term() (zero Expr[R], _ error) {
+func (p *Parser) Term() (zero Expr, _ error) {
 	expr, err := p.Factor()
 	if err != nil {
 		return zero, err
@@ -462,7 +462,7 @@ func (p *Parser[R]) Term() (zero Expr[R], _ error) {
 		if err != nil {
 			return zero, err
 		}
-		expr = &BinaryExpr[R]{
+		expr = &BinaryExpr{
 			Left:     expr,
 			Operator: operator,
 			Right:    right,
@@ -472,7 +472,7 @@ func (p *Parser[R]) Term() (zero Expr[R], _ error) {
 }
 
 // Factor -> Unary ( ( "/" | "*" ) Unary )* ;
-func (p *Parser[R]) Factor() (zero Expr[R], _ error) {
+func (p *Parser) Factor() (zero Expr, _ error) {
 	expr, err := p.Unary()
 	if err != nil {
 		return zero, err
@@ -483,7 +483,7 @@ func (p *Parser[R]) Factor() (zero Expr[R], _ error) {
 		if err != nil {
 			return zero, err
 		}
-		expr = &BinaryExpr[R]{
+		expr = &BinaryExpr{
 			Left:     expr,
 			Operator: operator,
 			Right:    right,
@@ -493,14 +493,14 @@ func (p *Parser[R]) Factor() (zero Expr[R], _ error) {
 }
 
 // Unary -> ( "!" | "-" ) Unary | Call ;
-func (p *Parser[R]) Unary() (zero Expr[R], _ error) {
+func (p *Parser) Unary() (zero Expr, _ error) {
 	if p.Match(Bang, Minus) {
 		operator := p.Previous()
 		right, err := p.Unary()
 		if err != nil {
 			return zero, err
 		}
-		return &UnaryExpr[R]{
+		return &UnaryExpr{
 			Operator: operator,
 			Right:    right,
 		}, nil
@@ -509,13 +509,13 @@ func (p *Parser[R]) Unary() (zero Expr[R], _ error) {
 }
 
 // Call -> Primary ( "(" Arguments? ")" )* ;
-func (p *Parser[R]) Call() (zero Expr[R], _ error) {
+func (p *Parser) Call() (zero Expr, _ error) {
 	expr, err := p.Primary()
 	if err != nil {
 		return zero, err
 	}
 	for p.Match(LeftParen) {
-		var arguments []Expr[R]
+		var arguments []Expr
 		if !p.Check(RightParen) {
 			arguments, err = p.Arguments()
 			if err != nil {
@@ -526,7 +526,7 @@ func (p *Parser[R]) Call() (zero Expr[R], _ error) {
 			return zero, p.Error(p.Peek(), "expect ')' after arguments")
 		}
 		paren := p.Previous()
-		expr = &CallExpr[R]{
+		expr = &CallExpr{
 			Callee:    expr,
 			Paren:     paren,
 			Arguments: arguments,
@@ -536,8 +536,8 @@ func (p *Parser[R]) Call() (zero Expr[R], _ error) {
 }
 
 // Arguments -> Expression ( "," Expression )* ;
-func (p *Parser[R]) Arguments() ([]Expr[R], error) {
-	var arguments []Expr[R]
+func (p *Parser) Arguments() ([]Expr, error) {
+	var arguments []Expr
 	for {
 		if len(arguments) >= 255 {
 			return nil, p.Error(p.Peek(), "can't have more than 255 arguments")
@@ -555,24 +555,24 @@ func (p *Parser[R]) Arguments() ([]Expr[R], error) {
 }
 
 // Primary -> Lambda | NUMBER | STRING | "true" | "false" | "nil" | "(" Expression ")" | IDENTIFIER ;
-func (p *Parser[R]) Primary() (zero Expr[R], _ error) {
+func (p *Parser) Primary() (zero Expr, _ error) {
 	if p.Match(Fun) {
 		return p.Lambda()
 	}
 	if p.Match(False) {
-		return &LiteralExpr[R]{Value: false}, nil
+		return &LiteralExpr{Value: false}, nil
 	}
 	if p.Match(True) {
-		return &LiteralExpr[R]{Value: true}, nil
+		return &LiteralExpr{Value: true}, nil
 	}
 	if p.Match(Nil) {
-		return &LiteralExpr[R]{Value: nil}, nil
+		return &LiteralExpr{Value: nil}, nil
 	}
 	if p.Match(Number, String) {
-		return &LiteralExpr[R]{Value: p.Previous().Literal}, nil
+		return &LiteralExpr{Value: p.Previous().Literal}, nil
 	}
 	if p.Match(Identifier) {
-		return &VariableExpr[R]{Name: p.Previous()}, nil
+		return &VariableExpr{Name: p.Previous()}, nil
 	}
 	if p.Match(LeftParen) {
 		expr, err := p.Expression()
@@ -582,13 +582,13 @@ func (p *Parser[R]) Primary() (zero Expr[R], _ error) {
 		if !p.Match(RightParen) {
 			return zero, p.Error(p.Peek(), "expect ')' after expression")
 		}
-		return &GroupingExpr[R]{Expression: expr}, nil
+		return &GroupingExpr{Expression: expr}, nil
 	}
 	return zero, p.Error(p.Peek(), "expect expression")
 }
 
 // Lambda -> "fun" "(" Parameters? ")" Block ;
-func (p *Parser[R]) Lambda() (_ Expr[R], err error) {
+func (p *Parser) Lambda() (_ Expr, err error) {
 	if !p.Match(LeftParen) {
 		return nil, p.Error(p.Peek(), "expect '(' after 'fun'")
 	}
@@ -611,45 +611,45 @@ func (p *Parser[R]) Lambda() (_ Expr[R], err error) {
 		return nil, err
 	}
 	p.CallableDepth--
-	return &LambdaExpr[R]{
+	return &LambdaExpr{
 		Params: parameters,
 		Body:   body.Statements,
 	}, nil
 }
 
-func (p *Parser[R]) Check(t TokenType) bool {
+func (p *Parser) Check(t TokenType) bool {
 	if p.IsAtEnd() {
 		return false
 	}
 	return p.Peek().Type == t
 }
 
-func (p *Parser[R]) Match(types ...TokenType) bool {
+func (p *Parser) Match(types ...TokenType) bool {
 	return slices.ContainsFunc(types, func(t TokenType) bool {
 		return p.Check(t) && func() bool { p.Advance(); return true }()
 	})
 }
 
-func (p *Parser[R]) Advance() Token {
+func (p *Parser) Advance() Token {
 	if !p.IsAtEnd() {
 		p.Current++
 	}
 	return p.Previous()
 }
 
-func (p *Parser[R]) IsAtEnd() bool {
+func (p *Parser) IsAtEnd() bool {
 	return p.Peek().Type == EOF
 }
 
-func (p *Parser[R]) Peek() Token {
+func (p *Parser) Peek() Token {
 	return p.Tokens[p.Current]
 }
 
-func (p *Parser[R]) Previous() Token {
+func (p *Parser) Previous() Token {
 	return p.Tokens[p.Current-1]
 }
 
-func (p *Parser[R]) Error(token Token, message string) error {
+func (p *Parser) Error(token Token, message string) error {
 	if token.Type == EOF {
 		return Report(token.Line, " at end", message)
 	}

@@ -1,205 +1,205 @@
 package glox
 
-type Program[R any] []Stmt[R]
+type Program []Stmt
 
-type Visitor[R any] interface {
-	ExprVisitor[R]
-	StmtVisitor[R]
+type Visitor interface {
+	ExprVisitor
+	StmtVisitor
 }
 
-type Expr[R any] interface {
-	Accept(visitor ExprVisitor[R]) (R, error)
+type Expr interface {
+	Accept(visitor ExprVisitor) (any, error)
 }
 
-type ExprVisitor[R any] interface {
-	VisitBinaryExpr(expr *BinaryExpr[R]) (R, error)
-	VisitGroupingExpr(expr *GroupingExpr[R]) (R, error)
-	VisitLiteralExpr(expr *LiteralExpr[R]) (R, error)
-	VisitUnaryExpr(expr *UnaryExpr[R]) (R, error)
-	VisitVariableExpr(expr *VariableExpr[R]) (R, error)
-	VisitAssignExpr(expr *AssignExpr[R]) (R, error)
-	VisitLogicalExpr(expr *LogicalExpr[R]) (R, error)
-	VisitCallExpr(expr *CallExpr[R]) (R, error)
-	VisitLambdaExpr(expr *LambdaExpr[R]) (R, error)
+type ExprVisitor interface {
+	VisitBinaryExpr(expr *BinaryExpr) (any, error)
+	VisitGroupingExpr(expr *GroupingExpr) (any, error)
+	VisitLiteralExpr(expr *LiteralExpr) (any, error)
+	VisitUnaryExpr(expr *UnaryExpr) (any, error)
+	VisitVariableExpr(expr *VariableExpr) (any, error)
+	VisitAssignExpr(expr *AssignExpr) (any, error)
+	VisitLogicalExpr(expr *LogicalExpr) (any, error)
+	VisitCallExpr(expr *CallExpr) (any, error)
+	VisitLambdaExpr(expr *LambdaExpr) (any, error)
 }
 
-type BinaryExpr[R any] struct {
-	Left     Expr[R]
+type BinaryExpr struct {
+	Left     Expr
 	Operator Token
-	Right    Expr[R]
+	Right    Expr
 }
 
-func (b *BinaryExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (b *BinaryExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitBinaryExpr(b)
 }
 
-type GroupingExpr[R any] struct {
-	Expression Expr[R]
+type GroupingExpr struct {
+	Expression Expr
 }
 
-func (g *GroupingExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (g *GroupingExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitGroupingExpr(g)
 }
 
-type LiteralExpr[R any] struct {
+type LiteralExpr struct {
 	Value any
 }
 
-func (l *LiteralExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (l *LiteralExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitLiteralExpr(l)
 }
 
-type UnaryExpr[R any] struct {
+type UnaryExpr struct {
 	Operator Token
-	Right    Expr[R]
+	Right    Expr
 }
 
-func (u *UnaryExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (u *UnaryExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitUnaryExpr(u)
 }
 
-type VariableExpr[R any] struct {
+type VariableExpr struct {
 	Name Token
 }
 
-func (i *VariableExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (i *VariableExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitVariableExpr(i)
 }
 
-type AssignExpr[R any] struct {
+type AssignExpr struct {
 	Name  Token
-	Value Expr[R]
+	Value Expr
 }
 
-func (a *AssignExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (a *AssignExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitAssignExpr(a)
 }
 
-type LogicalExpr[R any] struct {
-	Left     Expr[R]
+type LogicalExpr struct {
+	Left     Expr
 	Operator Token
-	Right    Expr[R]
+	Right    Expr
 }
 
-func (l *LogicalExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (l *LogicalExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitLogicalExpr(l)
 }
 
-type CallExpr[R any] struct {
-	Callee    Expr[R]
+type CallExpr struct {
+	Callee    Expr
 	Paren     Token
-	Arguments []Expr[R]
+	Arguments []Expr
 }
 
-func (c *CallExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (c *CallExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitCallExpr(c)
 }
 
-type LambdaExpr[R any] struct {
+type LambdaExpr struct {
 	Params []Token
-	Body   []Stmt[R]
+	Body   []Stmt
 }
 
-func (l *LambdaExpr[R]) Accept(visitor ExprVisitor[R]) (R, error) {
+func (l *LambdaExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitLambdaExpr(l)
 }
 
-type Stmt[R any] interface {
-	Accept(visitor StmtVisitor[R]) error
+type Stmt interface {
+	Accept(visitor StmtVisitor) error
 }
 
-type StmtVisitor[R any] interface {
-	VisitExpressionStmt(stmt *ExpressionStmt[R]) error
-	VisitPrintStmt(stmt *PrintStmt[R]) error
-	VisitVarDeclStmt(stmt *VarDeclStmt[R]) error
-	VisitBlockStmt(stmt *BlockStmt[R]) error
-	VisitIfStmt(stmt *IfStmt[R]) error
-	VisitWhileStmt(stmt *WhileStmt[R]) error
-	VisitBreakStmt(stmt *BreakStmt[R]) error
-	VisitContinueStmt(stmt *ContinueStmt[R]) error
-	VisitFunctionStmt(stmt *FunctionStmt[R]) error
-	VisitReturnStmt(stmt *ReturnStmt[R]) error
+type StmtVisitor interface {
+	VisitExpressionStmt(stmt *ExpressionStmt) error
+	VisitPrintStmt(stmt *PrintStmt) error
+	VisitVarDeclStmt(stmt *VarDeclStmt) error
+	VisitBlockStmt(stmt *BlockStmt) error
+	VisitIfStmt(stmt *IfStmt) error
+	VisitWhileStmt(stmt *WhileStmt) error
+	VisitBreakStmt(stmt *BreakStmt) error
+	VisitContinueStmt(stmt *ContinueStmt) error
+	VisitFunctionStmt(stmt *FunctionStmt) error
+	VisitReturnStmt(stmt *ReturnStmt) error
 }
 
-type ExpressionStmt[R any] struct {
-	Expr Expr[R]
+type ExpressionStmt struct {
+	Expr Expr
 }
 
-func (e *ExpressionStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (e *ExpressionStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitExpressionStmt(e)
 }
 
-type PrintStmt[R any] struct {
-	Expr Expr[R]
+type PrintStmt struct {
+	Expr Expr
 }
 
-func (p *PrintStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (p *PrintStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitPrintStmt(p)
 }
 
-type VarDeclStmt[R any] struct {
+type VarDeclStmt struct {
 	Name        Token
-	Initializer Expr[R]
+	Initializer Expr
 }
 
-func (v *VarDeclStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (v *VarDeclStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitVarDeclStmt(v)
 }
 
-type BlockStmt[R any] struct {
-	Statements []Stmt[R]
+type BlockStmt struct {
+	Statements []Stmt
 }
 
-func (b *BlockStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (b *BlockStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitBlockStmt(b)
 }
 
-type IfStmt[R any] struct {
-	Condition  Expr[R]
-	ThenBranch Stmt[R]
-	ElseBranch Stmt[R]
+type IfStmt struct {
+	Condition  Expr
+	ThenBranch Stmt
+	ElseBranch Stmt
 }
 
-func (i *IfStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (i *IfStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitIfStmt(i)
 }
 
-type WhileStmt[R any] struct {
-	Condition Expr[R]
-	Body      Stmt[R]
+type WhileStmt struct {
+	Condition Expr
+	Body      Stmt
 }
 
-func (w *WhileStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (w *WhileStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitWhileStmt(w)
 }
 
-type BreakStmt[R any] struct{}
+type BreakStmt struct{}
 
-func (b *BreakStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (b *BreakStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitBreakStmt(b)
 }
 
-type ContinueStmt[R any] struct{}
+type ContinueStmt struct{}
 
-func (c *ContinueStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (c *ContinueStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitContinueStmt(c)
 }
 
-type FunctionStmt[R any] struct {
+type FunctionStmt struct {
 	Name   Token
 	Params []Token
-	Body   []Stmt[R]
+	Body   []Stmt
 }
 
-func (f *FunctionStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (f *FunctionStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitFunctionStmt(f)
 }
 
-type ReturnStmt[R any] struct {
+type ReturnStmt struct {
 	Keyword Token
-	Value   Expr[R]
+	Value   Expr
 }
 
-func (r *ReturnStmt[R]) Accept(visitor StmtVisitor[R]) error {
+func (r *ReturnStmt) Accept(visitor StmtVisitor) error {
 	return visitor.VisitReturnStmt(r)
 }

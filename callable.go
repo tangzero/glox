@@ -7,10 +7,10 @@ type Callable interface {
 
 type Function struct {
 	closure Env
-	stmt    *FunctionStmt[any]
+	stmt    *FunctionStmt
 }
 
-func NewFunction(closure Env, stmt *FunctionStmt[any]) Callable {
+func NewFunction(closure Env, stmt *FunctionStmt) Callable {
 	return &Function{closure, stmt}
 }
 
@@ -39,10 +39,10 @@ func (f *Function) Call(interpreter *Interpreter, arguments []any) (any, error) 
 
 type Lambda struct {
 	closure Env
-	expr    *LambdaExpr[any]
+	expr    *LambdaExpr
 }
 
-func NewLambda(closure Env, expr *LambdaExpr[any]) Callable {
+func NewLambda(closure Env, expr *LambdaExpr) Callable {
 	return &Lambda{closure, expr}
 }
 

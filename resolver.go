@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-var _ Visitor[any] = (*Resolver)(nil)
+var _ Visitor = (*Resolver)(nil)
 
 type Resolver struct {
 	Interpreter *Interpreter
@@ -27,26 +27,26 @@ func (r *Resolver) EndScope() {
 	r.Scopes.Pop()
 }
 
-func (r *Resolver) VisitBinaryExpr(expr *BinaryExpr[any]) (any, error) {
+func (r *Resolver) VisitBinaryExpr(expr *BinaryExpr) (any, error) {
 	if err := r.ResolveExpr(expr.Left); err != nil {
 		return nil, err
 	}
 	return nil, r.ResolveExpr(expr.Right)
 }
 
-func (r *Resolver) VisitGroupingExpr(expr *GroupingExpr[any]) (any, error) {
+func (r *Resolver) VisitGroupingExpr(expr *GroupingExpr) (any, error) {
 	return nil, r.ResolveExpr(expr.Expression)
 }
 
-func (r *Resolver) VisitLiteralExpr(expr *LiteralExpr[any]) (any, error) {
+func (r *Resolver) VisitLiteralExpr(expr *LiteralExpr) (any, error) {
 	return nil, nil // do nothing
 }
 
-func (r *Resolver) VisitUnaryExpr(expr *UnaryExpr[any]) (any, error) {
+func (r *Resolver) VisitUnaryExpr(expr *UnaryExpr) (any, error) {
 	return nil, r.ResolveExpr(expr.Right)
 }
 
-func (r *Resolver) VisitVariableExpr(expr *VariableExpr[any]) (any, error) {
+func (r *Resolver) VisitVariableExpr(expr *VariableExpr) (any, error) {
 	if !r.Scopes.Empty() {
 		if s := r.Scopes.Peek(); s.Declared(expr.Name.Lexeme) && !s.Defined(expr.Name.Lexeme) {
 			return nil, errors.New("can't read local variable in its own initializer")
@@ -55,21 +55,21 @@ func (r *Resolver) VisitVariableExpr(expr *VariableExpr[any]) (any, error) {
 	return nil, r.ResolveLocal(expr, expr.Name)
 }
 
-func (r *Resolver) VisitAssignExpr(expr *AssignExpr[any]) (any, error) {
+func (r *Resolver) VisitAssignExpr(expr *AssignExpr) (any, error) {
 	if err := r.ResolveExpr(expr.Value); err != nil {
 		return nil, err
 	}
 	return nil, r.ResolveLocal(expr, expr.Name)
 }
 
-func (r *Resolver) VisitLogicalExpr(expr *LogicalExpr[any]) (any, error) {
+func (r *Resolver) VisitLogicalExpr(expr *LogicalExpr) (any, error) {
 	if err := r.ResolveExpr(expr.Left); err != nil {
 		return nil, err
 	}
 	return nil, r.ResolveExpr(expr.Right)
 }
 
-func (r *Resolver) VisitCallExpr(expr *CallExpr[any]) (any, error) {
+func (r *Resolver) VisitCallExpr(expr *CallExpr) (any, error) {
 	if err := r.ResolveExpr(expr.Callee); err != nil {
 		return nil, err
 	}
@@ -81,22 +81,22 @@ func (r *Resolver) VisitCallExpr(expr *CallExpr[any]) (any, error) {
 	return nil, nil
 }
 
-func (r *Resolver) VisitLambdaExpr(expr *LambdaExpr[any]) (any, error) {
-	return nil, r.ResolveFunction(&FunctionStmt[any]{
+func (r *Resolver) VisitLambdaExpr(expr *LambdaExpr) (any, error) {
+	return nil, r.ResolveFunction(&FunctionStmt{
 		Params: expr.Params,
 		Body:   expr.Body,
 	})
 }
 
-func (r *Resolver) VisitExpressionStmt(stmt *ExpressionStmt[any]) error {
+func (r *Resolver) VisitExpressionStmt(stmt *ExpressionStmt) error {
 	return r.ResolveExpr(stmt.Expr)
 }
 
-func (r *Resolver) VisitPrintStmt(stmt *PrintStmt[any]) error {
+func (r *Resolver) VisitPrintStmt(stmt *PrintStmt) error {
 	return r.ResolveExpr(stmt.Expr)
 }
 
-func (r *Resolver) VisitVarDeclStmt(stmt *VarDeclStmt[any]) error {
+func (r *Resolver) VisitVarDeclStmt(stmt *VarDeclStmt) error {
 	if err := r.Declare(stmt.Name.Lexeme); err != nil {
 		return err
 	}
@@ -109,13 +109,13 @@ func (r *Resolver) VisitVarDeclStmt(stmt *VarDeclStmt[any]) error {
 	return nil
 }
 
-func (r *Resolver) VisitBlockStmt(stmt *BlockStmt[any]) error {
+func (r *Resolver) VisitBlockStmt(stmt *BlockStmt) error {
 	r.BeginScope()
 	defer r.EndScope()
 	return r.Resolve(stmt.Statements)
 }
 
-func (r *Resolver) VisitIfStmt(stmt *IfStmt[any]) error {
+func (r *Resolver) VisitIfStmt(stmt *IfStmt) error {
 	if err := r.ResolveExpr(stmt.Condition); err != nil {
 		return err
 	}
@@ -130,26 +130,26 @@ func (r *Resolver) VisitIfStmt(stmt *IfStmt[any]) error {
 	return nil
 }
 
-func (r *Resolver) VisitWhileStmt(stmt *WhileStmt[any]) error {
+func (r *Resolver) VisitWhileStmt(stmt *WhileStmt) error {
 	if err := r.ResolveExpr(stmt.Condition); err != nil {
 		return err
 	}
 	return r.ResolveStmt(stmt.Body)
 }
 
-func (r *Resolver) VisitBreakStmt(*BreakStmt[any]) error {
+func (r *Resolver) VisitBreakStmt(*BreakStmt) error {
 	return nil
 }
 
-func (r *Resolver) VisitContinueStmt(*ContinueStmt[any]) error {
+func (r *Resolver) VisitContinueStmt(*ContinueStmt) error {
 	return nil
 }
 
-func (r *Resolver) VisitReturnStmt(stmt *ReturnStmt[any]) (err error) {
+func (r *Resolver) VisitReturnStmt(stmt *ReturnStmt) (err error) {
 	return r.ResolveExpr(stmt.Value)
 }
 
-func (r *Resolver) VisitFunctionStmt(stmt *FunctionStmt[any]) error {
+func (r *Resolver) VisitFunctionStmt(stmt *FunctionStmt) error {
 	if err := r.Declare(stmt.Name.Lexeme); err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (r *Resolver) VisitFunctionStmt(stmt *FunctionStmt[any]) error {
 	return r.ResolveFunction(stmt)
 }
 
-func (r *Resolver) Resolve(stmts []Stmt[any]) error {
+func (r *Resolver) Resolve(stmts []Stmt) error {
 	for _, stmt := range stmts {
 		if err := r.ResolveStmt(stmt); err != nil {
 			return err
@@ -166,16 +166,16 @@ func (r *Resolver) Resolve(stmts []Stmt[any]) error {
 	return nil
 }
 
-func (r *Resolver) ResolveStmt(stmt Stmt[any]) error {
+func (r *Resolver) ResolveStmt(stmt Stmt) error {
 	return stmt.Accept(r)
 }
 
-func (r *Resolver) ResolveExpr(expr Expr[any]) error {
+func (r *Resolver) ResolveExpr(expr Expr) error {
 	_, err := expr.Accept(r)
 	return err
 }
 
-func (r *Resolver) ResolveFunction(stmt *FunctionStmt[any]) error {
+func (r *Resolver) ResolveFunction(stmt *FunctionStmt) error {
 	r.BeginScope()
 	defer r.EndScope()
 	for _, param := range stmt.Params {
@@ -187,7 +187,7 @@ func (r *Resolver) ResolveFunction(stmt *FunctionStmt[any]) error {
 	return r.Resolve(stmt.Body)
 }
 
-func (r *Resolver) ResolveLocal(expr Expr[any], name Token) error {
+func (r *Resolver) ResolveLocal(expr Expr, name Token) error {
 	for i := r.Scopes.Len() - 1; i >= 0; i-- {
 		if r.Scopes.At(i).Defined(name.Lexeme) {
 			return r.Interpreter.Resolve(expr, r.Scopes.Len()-1-i)
